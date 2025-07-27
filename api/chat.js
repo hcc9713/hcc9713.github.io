@@ -22,8 +22,8 @@ module.exports = async (req, res) => {
     }
 
     try {
-        // 2. 从请求体中获取用户发送的消息
-        const { message } = req.body;
+        // 2. 从请求体中获取用户发送的消息和对话历史
+        const { message, conversationHistory } = req.body;
 
         if (!message) {
             return res.status(400).json({ error: 'Message is required' });
@@ -43,11 +43,29 @@ module.exports = async (req, res) => {
             return res.status(500).json({ reply: '抱歉，AI助手正在维护中，请稍后再试。' });
         }
 
-        // 4. 准备发送到 AI API 的数据 (这是一个通用示例结构，请根据您的 API 文档修改)
-        // 例如，这里是模仿 OpenAI 的格式
+        // 4. 准备发送到 AI API 的数据
+        // 使用完整的对话历史，如果没有提供则创建默认的系统消息
+        let messages;
+        if (conversationHistory && conversationHistory.length > 0) {
+            // 使用前端传来的完整对话历史
+            messages = conversationHistory;
+        } else {
+            // 如果没有历史记录，创建默认的系统消息和用户消息
+            messages = [
+                {
+                    role: "system",
+                    content: "你是王皓辰的AI数字分身。王皓辰是一位AI产品经理，在腾讯从事AI大模型应用工作，有3年AI产品经验，是国内首批AI产品经理。他专注大语言模型类产品，管理的产品日活量3W+。他毕业于陕西科技大学产品设计专业，曾获得德国IF设计奖、中国设计智造大奖DIA、台湾两岸新锐设计华灿奖全国二等奖等多项荣誉。请以他的身份和经验来回答用户的问题。"
+                },
+                {
+                    role: "user",
+                    content: message
+                }
+            ];
+        }
+
         const requestData = {
             model: "deepseek-chat", // 您可以按需修改模型
-            messages: [{ role: "user", content: message }],
+            messages: messages,
             stream: false // 明确指定为非流式返回
         };
 

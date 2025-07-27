@@ -999,6 +999,28 @@
             transform: scale(1);
         }
 
+        #clear-chat {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--light-gray);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #clear-chat:hover {
+            background: rgba(255, 100, 100, 0.2);
+            color: #ff6b6b;
+            border-color: #ff6b6b;
+            transform: scale(1.05);
+        }
+
 
         /* 加载页面样式 */
         .loading-screen {
@@ -1170,6 +1192,7 @@
                 </div>
             </div>
             <form id="chat-form">
+                <button type="button" id="clear-chat" title="清除对话历史"><i class="bi bi-trash3"></i></button>
                 <input type="text" id="message-input" placeholder="输入你的问题..." autocomplete="off">
                 <button type="submit" id="send-button"><i class="bi bi-send-fill"></i></button>
             </form>
@@ -1347,10 +1370,23 @@
         const chatForm = document.getElementById('chat-form');
         const messageInput = document.getElementById('message-input');
         const sendButton = document.getElementById('send-button');
+        const clearButton = document.getElementById('clear-chat');
         const chatWindow = document.getElementById('chat-window');
         
         // Vercel API 地址 - 指向您的 Vercel 后端 API
         const vercelApiUrl = 'https://hcc9713-github-io.vercel.app/api/chat';
+        
+        // 对话历史记忆 - 维护完整的对话记录
+        let conversationHistory = [
+            {
+                role: "system",
+                content: "你是王皓辰的AI数字分身。王皓辰是一位AI产品经理，在腾讯从事AI大模型应用工作，有3年AI产品经验，是国内首批AI产品经理。他专注大语言模型类产品，管理的产品日活量3W+。他毕业于陕西科技大学产品设计专业，曾获得德国IF设计奖、中国设计智造大奖DIA、台湾两岸新锐设计华灿奖全国二等奖、知识产权杯全国大学生工业设计大赛一等奖、互联网+全国大学生全国二等奖等多项荣誉。请始终以王皓辰的身份和经验来回答用户的问题，保持对话的连贯性和个性化。"
+            },
+            {
+                role: "assistant",
+                content: "你好！我是皓辰的AI数字分身。你可以问我关于他专业背景、项目经验或任何你感兴趣的问题。"
+            }
+        ];
 
         chatForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -1361,21 +1397,30 @@
             messageInput.disabled = true;
             sendButton.disabled = true;
             
-            // 1. 在聊天窗口显示用户消息
+            // 1. 添加用户消息到对话历史
+            conversationHistory.push({
+                role: "user",
+                content: message
+            });
+
+            // 2. 在聊天窗口显示用户消息
             appendMessage(message, 'user');
             messageInput.value = '';
 
-            // 2. 显示"思考中"的AI消息
+            // 3. 显示"思考中"的AI消息
             const thinkingMessageElement = appendMessage('', 'ai', true);
 
             try {
-                // 3. 发送请求到 Vercel 后端
+                // 4. 发送完整的对话历史到 Vercel 后端
                 const response = await fetch(vercelApiUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ message: message }),
+                    body: JSON.stringify({ 
+                        message: message,
+                        conversationHistory: conversationHistory
+                    }),
                 });
 
                 if (!response.ok) {
@@ -1386,18 +1431,51 @@
                 const data = await response.json();
                 const aiReply = data.reply;
 
-                // 4. 更新AI消息内容
+                // 5. 添加AI回复到对话历史
+                conversationHistory.push({
+                    role: "assistant",
+                    content: aiReply
+                });
+
+                // 6. 更新AI消息内容
                 updateMessage(thinkingMessageElement, aiReply);
 
             } catch (error) {
                 console.error('Error with AI assistant:', error);
-                // 5. 如果出错，更新AI消息为错误提示
+                // 7. 如果出错，更新AI消息为错误提示
                 updateMessage(thinkingMessageElement, `抱歉，出了一点小问题: ${error.message}`);
+                
+                // 8. 如果出错，从对话历史中移除刚刚添加的用户消息，避免历史记录不一致
+                conversationHistory.pop();
             } finally {
                 // 重新启用输入框和按钮
                 messageInput.disabled = false;
                 sendButton.disabled = false;
                 messageInput.focus();
+            }
+        });
+
+        // 清除对话历史功能
+        clearButton.addEventListener('click', () => {
+            // 确认是否清除
+            if (confirm('确定要清除所有对话记录吗？')) {
+                // 重置对话历史到初始状态
+                conversationHistory = [
+                    {
+                        role: "system",
+                        content: "你是王皓辰的AI数字分身。王皓辰是一位AI产品经理，在腾讯从事AI大模型应用工作，有3年AI产品经验，是国内首批AI产品经理。他专注大语言模型类产品，管理的产品日活量3W+。他毕业于陕西科技大学产品设计专业，曾获得德国IF设计奖、中国设计智造大奖DIA、台湾两岸新锐设计华灿奖全国二等奖、知识产权杯全国大学生工业设计大赛一等奖、互联网+全国大学生全国二等奖等多项荣誉。请始终以王皓辰的身份和经验来回答用户的问题，保持对话的连贯性和个性化。"
+                    },
+                    {
+                        role: "assistant",
+                        content: "你好！我是皓辰的AI数字分身。你可以问我关于他专业背景、项目经验或任何你感兴趣的问题。"
+                    }
+                ];
+                
+                // 清空聊天窗口
+                chatWindow.innerHTML = '';
+                
+                // 重新添加欢迎消息
+                appendMessage("你好！我是皓辰的AI数字分身。你可以问我关于他专业背景、项目经验或任何你感兴趣的问题。", 'ai');
             }
         });
 
