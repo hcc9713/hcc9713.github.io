@@ -1462,14 +1462,16 @@
             const messageElement = document.createElement('div');
             messageElement.classList.add('chat-message', `${sender}-message`);
             
-            const avatar = document.createElement('div');
-            avatar.classList.add('avatar');
-            avatar.textContent = sender === 'user' ? '你' : 'AI';
+            // 只为 AI 的消息创建并添加头像
+            if (sender === 'ai') {
+                const avatar = document.createElement('div');
+                avatar.classList.add('avatar');
+                avatar.textContent = 'AI';
+                messageElement.appendChild(avatar);
+            }
             
             const messagePara = document.createElement('p');
             messagePara.textContent = text;
-            
-            messageElement.appendChild(avatar);
             messageElement.appendChild(messagePara);
 
             if (isThinking) {
