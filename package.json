@@ -7,7 +7,7 @@
     "dev": "vercel dev"
    },
      "dependencies": {
-     "openai": "^4.20.0"
+     "axios": "^1.6.0"
     },
      "keywords": ["personal-website", "ai", "vercel"],
      "author": "王皓辰",
