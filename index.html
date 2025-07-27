@@ -1349,8 +1349,8 @@
         const sendButton = document.getElementById('send-button');
         const chatWindow = document.getElementById('chat-window');
         
-        // Vercel API 地址，部署后会自动生效
-        const vercelApiUrl = '/api/chat';
+        // Vercel API 地址 - 指向您的 Vercel 后端 API
+        const vercelApiUrl = 'https://hcc9713-github-io.vercel.app/api/chat';
 
         chatForm.addEventListener('submit', async (e) => {
             e.preventDefault();
