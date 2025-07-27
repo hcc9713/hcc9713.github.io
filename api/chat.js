@@ -35,7 +35,7 @@ module.exports = async (req, res) => {
         // 3. 从 Vercel 环境变量中获取您的 AI API 密钥和地址
         // 您需要在 Vercel 项目的设置页面添加名为 'AI_API_KEY' 和 'AI_API_URL' 的环境变量
         const apiKey = process.env.AI_API_KEY;
-        const apiUrl = process.env.AI_API_URL;
+        const apiUrl = "https://api.deepseek.com/v1/chat/completions";
 
         if (!apiKey || !apiUrl) {
             console.error('AI API Key or URL is not configured in Vercel environment variables.');
@@ -46,8 +46,9 @@ module.exports = async (req, res) => {
         // 4. 准备发送到 AI API 的数据 (这是一个通用示例结构，请根据您的 API 文档修改)
         // 例如，这里是模仿 OpenAI 的格式
         const requestData = {
-            model: "gpt-3.5-turbo", // 您可以按需修改模型
+            model: "deepseek-chat", // 您可以按需修改模型
             messages: [{ role: "user", content: message }],
+            stream: false // 明确指定为非流式返回
         };
 
         // 5. 设置请求头，通常需要包含 API 密钥用于认证
@@ -68,7 +69,8 @@ module.exports = async (req, res) => {
 
     } catch (error) {
         // 捕获并记录错误，这对于在 Vercel 后台排查问题很有帮助
-        console.error('Error calling AI API:', error.response ? error.response.data : error.message);
+        console.error('Error calling AI API. Status:', error.response?.status);
+        console.error('Response data:', error.response?.data);
         res.status(500).json({ reply: '抱歉，与AI服务通讯时发生错误。' });
     }
 }; 
