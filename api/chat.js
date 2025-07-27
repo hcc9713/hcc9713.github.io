@@ -54,7 +54,7 @@ module.exports = async (req, res) => {
         // 5. 设置请求头，通常需要包含 API 密钥用于认证
         const headers = {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`, // 'Bearer' 模式很常用，但请根据您的 API 要求调整
+            'Authorization': `Bearer ${process.env.AI_API_KEY}`, // 'Bearer' 模式很常用，但请根据您的 API 要求调整
         };
 
         // 6. 使用 axios 发送 POST 请求到您的 AI API
