@@ -1,0 +1,15 @@
+{
+     "name": "hc-personal-website",
+    "version": "1.0.0",
+    "description": "王皓辰的个人网站",
+    "main": "index.html",
+    "scripts": {
+    "dev": "vercel dev"
+   },
+     "dependencies": {
+     "openai": "^4.20.0"
+    },
+     "keywords": ["personal-website", "ai", "vercel"],
+     "author": "王皓辰",
+    "license": "MIT"
+     }

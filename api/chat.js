@@ -1,0 +1,74 @@
+// Vercel Serverless Function
+// This function will handle requests to /api/chat
+
+// 我们使用 require 而不是 import，因为 Vercel 默认环境是 Node.js CommonJS
+const axios = require('axios');
+
+module.exports = async (req, res) => {
+    // 允许来自您的 GitHub Pages 前端的跨域请求
+    res.setHeader('Access-Control-Allow-Origin', 'https://hcc9713.github.io');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    // 处理浏览器发送的 OPTIONS 预检请求
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+
+    // 1. 我们只处理 POST 请求
+    if (req.method !== 'POST') {
+        res.setHeader('Allow', ['POST']);
+        return res.status(405).end(`Method ${req.method} Not Allowed`);
+    }
+
+    try {
+        // 2. 从请求体中获取用户发送的消息
+        const { message } = req.body;
+
+        if (!message) {
+            return res.status(400).json({ error: 'Message is required' });
+        }
+
+        // --- 调用外部 AI API 的部分 ---
+        // 重要提示: 请根据您实际使用的 AI服务 修改以下代码
+
+        // 3. 从 Vercel 环境变量中获取您的 AI API 密钥和地址
+        // 您需要在 Vercel 项目的设置页面添加名为 'AI_API_KEY' 和 'AI_API_URL' 的环境变量
+        const apiKey = process.env.AI_API_KEY;
+        const apiUrl = process.env.AI_API_URL;
+
+        if (!apiKey || !apiUrl) {
+            console.error('AI API Key or URL is not configured in Vercel environment variables.');
+            // 为了不让用户看到服务端错误，我们返回一个友好的提示
+            return res.status(500).json({ reply: '抱歉，AI助手正在维护中，请稍后再试。' });
+        }
+
+        // 4. 准备发送到 AI API 的数据 (这是一个通用示例结构，请根据您的 API 文档修改)
+        // 例如，这里是模仿 OpenAI 的格式
+        const requestData = {
+            model: "gpt-3.5-turbo", // 您可以按需修改模型
+            messages: [{ role: "user", content: message }],
+        };
+
+        // 5. 设置请求头，通常需要包含 API 密钥用于认证
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`, // 'Bearer' 模式很常用，但请根据您的 API 要求调整
+        };
+
+        // 6. 使用 axios 发送 POST 请求到您的 AI API
+        const aiResponse = await axios.post(apiUrl, requestData, { headers });
+
+        // 7. 从 AI API 的响应中提取需要返回给前端的回复内容
+        // (请根据您的 API 返回结果的实际结构进行修改)
+        const aiMessage = aiResponse.data.choices[0].message.content;
+
+        // 8. 将 AI 的回复以 JSON 格式发送回前端
+        res.status(200).json({ reply: aiMessage });
+
+    } catch (error) {
+        // 捕获并记录错误，这对于在 Vercel 后台排查问题很有帮助
+        console.error('Error calling AI API:', error.response ? error.response.data : error.message);
+        res.status(500).json({ reply: '抱歉，与AI服务通讯时发生错误。' });
+    }
+}; 

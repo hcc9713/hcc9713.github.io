@@ -838,6 +838,168 @@
             }
         }
 
+        /* AI助手样式 */
+        .ai-assistant-section {
+            padding: 100px 8%;
+            background: var(--secondary-bg);
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 80vh;
+        }
+
+        .ai-assistant-container {
+            width: 100%;
+            max-width: 800px;
+            height: 600px;
+            background: linear-gradient(135deg, rgba(15, 15, 24, 0.7), rgba(26, 26, 46, 0.8));
+            backdrop-filter: blur(25px);
+            border-radius: 15px;
+            border: 1px solid rgba(0, 204, 255, 0.2);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        #chat-window {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* 自定义滚动条样式 */
+        #chat-window::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #chat-window::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+
+        #chat-window::-webkit-scrollbar-thumb {
+            background: rgba(0, 204, 255, 0.4);
+            border-radius: 4px;
+        }
+
+        #chat-window::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-color);
+        }
+
+        .chat-message {
+            padding: 12px 18px;
+            border-radius: 20px;
+            line-height: 1.6;
+            max-width: 80%;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .chat-message .avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: var(--accent-color);
+            color: var(--dark-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+            font-size: 0.9rem;
+        }
+
+        .chat-message p {
+            margin: 0;
+            white-space: pre-wrap; /* 保持换行和空格 */
+        }
+        
+        .user-message {
+            background: var(--accent-color);
+            color: var(--dark-bg);
+            align-self: flex-end;
+            border-bottom-right-radius: 5px;
+            flex-direction: row-reverse;
+        }
+        
+        .ai-message {
+            background: rgba(0, 204, 255, 0.1);
+            color: var(--light-gray);
+            align-self: flex-start;
+            border-bottom-left-radius: 5px;
+            position: relative;
+        }
+
+        .ai-message.thinking::after {
+            content: '...';
+            position: absolute;
+            bottom: 12px;
+            right: 18px;
+            animation: thinking-dots 1.5s infinite;
+        }
+        @keyframes thinking-dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        #chat-form {
+            display: flex;
+            padding: 15px;
+            border-top: 1px solid rgba(0, 204, 255, 0.2);
+            gap: 10px;
+        }
+        
+        #message-input {
+            flex-grow: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(0, 204, 255, 0.3);
+            border-radius: 30px;
+            padding: 10px 20px;
+            color: var(--white);
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        #message-input:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 15px rgba(0, 204, 255, 0.3);
+        }
+        
+        #send-button {
+            background: var(--accent-color);
+            color: var(--dark-bg);
+            border: none;
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #send-button:hover {
+            background: var(--accent-color-secondary);
+            transform: scale(1.1);
+        }
+
+        #send-button:disabled {
+            background: #555;
+            cursor: not-allowed;
+            transform: scale(1);
+        }
+
+
         /* 加载页面样式 */
         .loading-screen {
             position: fixed;
@@ -917,6 +1079,7 @@
             <a href="#home" class="active">首页</a>
             <a href="#skills">经历</a>
             <a href="#works">作品</a>
+            <a href="#ai-assistant">AI助手</a>
             <a href="#contact">联系我</a>
         </div>
     </nav>
@@ -992,6 +1155,24 @@
                     </li>
                 </ul>
             </div>
+        </div>
+    </section>
+
+    <!-- AI助手 -->
+    <section id="ai-assistant" class="ai-assistant-section">
+        <div class="ai-assistant-container">
+            <h2 class="section-title" style="margin-bottom: 2rem; font-size: 2rem;">与我的AI数字分身对话</h2>
+            <div id="chat-window">
+                <!-- 欢迎消息 -->
+                <div class="chat-message ai-message">
+                    <div class="avatar">AI</div>
+                    <p>你好！我是皓辰的AI数字分身。你可以问我关于他专业背景、项目经验或任何你感兴趣的问题。</p>
+                </div>
+            </div>
+            <form id="chat-form">
+                <input type="text" id="message-input" placeholder="输入你的问题..." autocomplete="off">
+                <button type="submit" id="send-button"><i class="bi bi-send-fill"></i></button>
+            </form>
         </div>
     </section>
 
@@ -1161,6 +1342,97 @@
                 }
             });
         });
+
+        // AI 助手交互逻辑
+        const chatForm = document.getElementById('chat-form');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const chatWindow = document.getElementById('chat-window');
+        
+        // Vercel API 地址，部署后会自动生效
+        const vercelApiUrl = '/api/chat';
+
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            // 禁用输入框和按钮
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+            
+            // 1. 在聊天窗口显示用户消息
+            appendMessage(message, 'user');
+            messageInput.value = '';
+
+            // 2. 显示"思考中"的AI消息
+            const thinkingMessageElement = appendMessage('', 'ai', true);
+
+            try {
+                // 3. 发送请求到 Vercel 后端
+                const response = await fetch(vercelApiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: message }),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.reply || 'API request failed');
+                }
+
+                const data = await response.json();
+                const aiReply = data.reply;
+
+                // 4. 更新AI消息内容
+                updateMessage(thinkingMessageElement, aiReply);
+
+            } catch (error) {
+                console.error('Error with AI assistant:', error);
+                // 5. 如果出错，更新AI消息为错误提示
+                updateMessage(thinkingMessageElement, `抱歉，出了一点小问题: ${error.message}`);
+            } finally {
+                // 重新启用输入框和按钮
+                messageInput.disabled = false;
+                sendButton.disabled = false;
+                messageInput.focus();
+            }
+        });
+
+        function appendMessage(text, sender, isThinking = false) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('chat-message', `${sender}-message`);
+            
+            const avatar = document.createElement('div');
+            avatar.classList.add('avatar');
+            avatar.textContent = sender === 'user' ? '你' : 'AI';
+            
+            const messagePara = document.createElement('p');
+            messagePara.textContent = text;
+            
+            messageElement.appendChild(avatar);
+            messageElement.appendChild(messagePara);
+
+            if (isThinking) {
+                messageElement.classList.add('thinking');
+            }
+            
+            chatWindow.appendChild(messageElement);
+            // 滚动到底部
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+            return messageElement;
+        }
+
+        function updateMessage(messageElement, newText) {
+            messageElement.classList.remove('thinking');
+            const messagePara = messageElement.querySelector('p');
+            messagePara.textContent = newText;
+            // 滚动到底部
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
     </script>
 </body>
 </html>
