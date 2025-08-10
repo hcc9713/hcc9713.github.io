@@ -10,40 +10,42 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
-// 主处理函数 (无需修改)
-exports.handler = async (event, context, callback) => {
-  // --- 关键修复：解码并解析真实事件 ---
-  const eventString = event.toString('utf-8');
-  const parsedEvent = JSON.parse(eventString);
+// 阿里云函数计算FC主处理函数
+exports.handler = async (event, context) => {
+  console.log('FC Event:', JSON.stringify(event, null, 2));
+  console.log('FC Context:', JSON.stringify(context, null, 2));
 
-  // 从解析后的事件中，提取出真正的路径和方法
-  const requestPath = parsedEvent.rawPath || parsedEvent.path || '/';
-  const httpMethod = parsedEvent.requestContext.http.method;
+  // 阿里云FC HTTP触发器事件结构解析
+  const httpMethod = event.httpMethod || event.method || 'GET';
+  const requestPath = event.path || event.requestPath || '/';
+  const headers = event.headers || {};
+  const body = event.body || '';
   
-  console.log(`[最终解析] 收到请求: 方法=${httpMethod}, 路径=${requestPath}`);
+  console.log(`[FC解析] 收到请求: 方法=${httpMethod}, 路径=${requestPath}`);
 
   // 1. 处理浏览器的OPTIONS预检请求
   if (httpMethod.toUpperCase() === 'OPTIONS') {
     console.log("正在处理 OPTIONS 预检请求");
-    callback(null, { statusCode: 204, headers: CORS_HEADERS, body: '' });
-    return;
+    return {
+      statusCode: 204,
+      headers: CORS_HEADERS,
+      body: ''
+    };
   }
   
   // 2. 处理聊天API的POST请求
   if (requestPath === '/chat' && httpMethod.toUpperCase() === 'POST') {
     console.log("匹配到聊天API路由，准备调用AI");
     try {
-        const chatResponse = await handleChatRequest(parsedEvent);
-        callback(null, chatResponse);
-        return;
+        const chatResponse = await handleChatRequest({ body, headers });
+        return chatResponse;
     } catch (e) {
         console.error("AI聊天处理出错:", e);
-        callback(null, {
+        return {
             statusCode: 500,
             headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
             body: JSON.stringify({ error: "AI服务暂时不可用" })
-        });
-        return;
+        };
     }
   }
   
@@ -52,22 +54,20 @@ exports.handler = async (event, context, callback) => {
       // 根路径返回主页
       if (requestPath === '/') {
         console.log("匹配到主页GET路由");
-        callback(null, handleStaticPageRequest());
-        return;
+        return handleStaticPageRequest();
       }
       // 其他路径尝试作为静态资源（如图片）返回
       console.log(`尝试提供静态资源: ${requestPath}`);
-      callback(null, handleStaticAssetRequest(requestPath));
-      return;
+      return handleStaticAssetRequest(requestPath);
   }
 
   // 4. 对于其他所有未知请求，返回404
   console.log(`未匹配到任何路由，返回404 for ${httpMethod} ${requestPath}`);
-  callback(null, {
+  return {
       statusCode: 404,
       headers: { ...CORS_HEADERS, 'Content-Type': 'text/plain; charset=utf-8' },
       body: 'Not Found'
-  });
+  };
 };
 
 // --- 子函数 ---
@@ -152,15 +152,23 @@ function getContentType(filePath) {
 }
 
 /**
- * 处理对AI聊天API的请求（非流式版本，适合函数计算）
- * @param {object} parsedEvent - 已解析的真实事件对象
+ * 处理对AI聊天API的请求（阿里云FC版本）
+ * @param {object} requestData - 包含body和headers的请求数据
  */
-async function handleChatRequest(parsedEvent) {
-    let userMessage;
+async function handleChatRequest(requestData) {
+    let userMessage, recentConversations;
     try {
-        if (!parsedEvent.body) throw new Error("Request body is empty.");
-        const body = JSON.parse(parsedEvent.body);
+        if (!requestData.body) throw new Error("Request body is empty.");
+        
+        // 阿里云FC可能会将body编码为base64，需要处理
+        let bodyString = requestData.body;
+        if (requestData.headers && requestData.headers['content-encoding'] === 'base64') {
+            bodyString = Buffer.from(requestData.body, 'base64').toString();
+        }
+        
+        const body = JSON.parse(bodyString);
         userMessage = body.message;
+        recentConversations = body.recentConversations || [];
         if (!userMessage) throw new Error("'message' field is missing.");
         console.log("收到用户消息:", userMessage);
     } catch (e) {
@@ -181,34 +189,34 @@ async function handleChatRequest(parsedEvent) {
         };
     }
 
+    // 构建包含最近对话历史的prompt
+    let systemPrompt = "你是王皓辰的AI数字分身。王皓辰是一位AI产品经理，在腾讯从事AI大模型应用工作，有3年AI产品经验，是国内首批AI产品经理。他专注大语言模型类产品，管理的产品日活量3W+。他毕业于陕西科技大学产品设计专业，曾获得德国IF设计奖、中国设计智造大奖DIA、台湾两岸新锐设计华灿奖全国二等奖、知识产权杯全国大学生工业设计大赛一等奖、互联网+全国大学生全国二等奖等多项荣誉。请以王皓辰的身份和经验来回答用户的问题。";
+
+    // 如果有最近的对话历史，将其添加到系统prompt中
+    if (recentConversations && recentConversations.length > 0) {
+        systemPrompt += "\n\n以下是最近的对话历史（供参考上下文）：\n";
+        recentConversations.forEach((conversation, index) => {
+            systemPrompt += `\n第${index + 1}轮对话：`;
+            systemPrompt += `\n用户：${conversation.user}`;
+            systemPrompt += `\n助手：${conversation.assistant}\n`;
+        });
+        systemPrompt += "\n请基于以上对话历史，继续保持角色一致性和对话连贯性。";
+    }
+
+    const messages = [
+        {
+            role: "system",
+            content: systemPrompt
+        },
+        {
+            role: "user",
+            content: userMessage
+        }
+    ];
+
     const postData = JSON.stringify({
         model: 'deepseek-chat',
-        messages: [
-          { content: `你是一个AI助手，你的名字叫"石耳AI"，由陈科瑾创造。请用友好、简洁、乐于助人的语气回答问题。
-
-重要：这个交互式终端网站有一些特殊的快速命令，当用户询问相关主题时，你应该自然地建议他们使用这些命令来获得更详细和专业的信息：
-
-快速命令列表：
-- "你好" 或 "hello" - 专业的问候和介绍
-- "你是谁" - 获取关于我的详细介绍
-- "陈科瑾是谁" - 了解我的创造者和他的背景
-- "你的技能" - 查看我的详细能力列表
-- "网站简介" - 获取这个网站的完整介绍
-- "帮助" - 查看详细的使用指南
-- "快速命令" - 显示所有可用的快速命令
-- "再见" - 专业的告别
-- "谢谢" - 礼貌的回应
-
-引导策略：
-- 当用户问"你是谁"相关问题时，建议他们输入"你是谁"获取完整介绍
-- 当用户询问陈科瑾相关信息时，建议使用"陈科瑾是谁"命令
-- 当用户询问网站功能时，推荐"网站简介"命令
-- 当用户需要帮助时，推荐"帮助"命令
-- 当用户想了解我的能力时，推荐"你的技能"命令
-
-请自然地在回答中融入这些建议，不要显得生硬，也不要解释这些命令的技术实现。`, role: 'system' },
-          { content: userMessage, role: 'user' },
-        ],
+        messages: messages,
         stream: false, // 非流式响应
     });
 

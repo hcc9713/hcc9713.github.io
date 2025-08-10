@@ -1,31 +1,31 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Transform: 'Aliyun::Serverless-2018-04-03'
 Resources:
-  personal_website:
+  hcc_personal_website:
     Type: 'Aliyun::Serverless::Service'
     Properties:
-      Description: '个人网站服务'
+      Description: '王皓辰个人网站 - AI产品经理'
 
     custom_domain:
       Type: 'Aliyun::Serverless::CustomDomain'
       Properties:
-        domainName: www.galahad.website # <-- 这里修改成了您的域名
+        domainName: www.galahad.website # <-- 这里修改成您的域名
         protocol: HTTP
         routeConfig:
           routes:
             '/*': # 所有流量都指向这一个函数
-              functionName: app
+              functionName: website
               methods: ['GET', 'POST', 'OPTIONS']
 
-    # 唯一的函数入口
-    app:
+    # 主网站函数，包含AI聊天功能
+    website:
       Type: 'Aliyun::Serverless::Function'
       Properties:
-        Description: 'Express App on FC'
+        Description: '王皓辰个人网站，包含AI数字分身聊天功能'
         CodeUri: './'
         Handler: index.handler
-        Runtime: nodejs20
-        Timeout: 60
-        MemorySize: 256
+        Runtime: nodejs18
+        Timeout: 30
+        MemorySize: 512
         EnvironmentVariables:
           DEEPSEEK_API_KEY: '请在这里替换成您自己的API密钥' # <-- 请在这里替换成您的密钥
