@@ -1124,7 +1124,7 @@
             <div class="profile-container">
                 <div class="profile-inner">
                     <img class="profile-img" src="whc.jpg" alt="个人头像" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                    <div class="profile-placeholder" style="display:none; align-items:center; justify-content:center; height:100%; background:linear-gradient(135deg, var(--accent-color), var(--accent-color-secondary)); color:var(--dark-bg); font-size:3rem;">👤</div>
+                    <div class="profile-placeholder" style="display:none; align-items:center; justify-content:center; height:100%; background:linear-gradient(135deg, var(--accent-color), var(--accent-color-secondary)); color:white; font-size:4rem; font-weight:bold; text-shadow:0 2px 4px rgba(0,0,0,0.3);">王皓辰</div>
                     <div class="profile-job-title">AI产品经理</div>
                 </div>
             </div>
@@ -1548,11 +1548,38 @@
             setTimeout(diagnoseImageLoading, 2000); // 延迟2秒后检查
         });
 
+        // 添加一个显示诊断结果的浮动窗口
+        function showDiagnosticInfo() {
+            fetch('/test-images')
+                .then(response => response.json())
+                .then(data => {
+                    const info = document.createElement('div');
+                    info.style.cssText = `
+                        position: fixed; top: 20px; right: 20px; 
+                        background: rgba(0,0,0,0.9); color: white; 
+                        padding: 20px; border-radius: 10px; 
+                        max-width: 400px; z-index: 10000;
+                        font-family: monospace; font-size: 12px;
+                        max-height: 400px; overflow-y: auto;
+                    `;
+                    info.innerHTML = `
+                        <h3>🔍 图片诊断报告</h3>
+                        <button onclick="this.parentElement.remove()" style="float:right; background:red; color:white; border:none; padding:5px;">×</button>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                    document.body.appendChild(info);
+                })
+                .catch(error => {
+                    console.error('诊断请求失败:', error);
+                    alert('诊断请求失败: ' + error.message);
+                });
+        }
+
         // 添加键盘快捷键 Ctrl+D 来手动触发诊断
         document.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.key === 'd') {
                 e.preventDefault();
-                diagnoseImageLoading();
+                showDiagnosticInfo();
             }
         });
 
