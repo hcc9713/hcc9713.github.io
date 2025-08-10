@@ -22,6 +22,7 @@ exports.handler = async (event, context) => {
   const body = event.body || '';
   
   console.log(`[FC解析] 收到请求: 方法=${httpMethod}, 路径=${requestPath}`);
+  console.log(`[FC解析] Headers:`, JSON.stringify(headers, null, 2));
 
   // 1. 处理浏览器的OPTIONS预检请求
   if (httpMethod.toUpperCase() === 'OPTIONS') {
@@ -97,16 +98,34 @@ function handleStaticPageRequest() {
  * @param {string} requestPath - 请求的资源路径, e.g., /Ria.jpg?t=12345
  */
 function handleStaticAssetRequest(requestPath) {
+    console.log(`[静态资源请求] 原始路径: ${requestPath}`);
+    
     // 关键修复：从请求路径中移除查询参数（例如 ?t=...），得到纯粹的文件路径
     const pathnameOnly = requestPath.split('?')[0];
+    console.log(`[静态资源请求] 清理后路径: ${pathnameOnly}`);
 
     // 安全检查：防止路径遍历攻击
     const safeSuffix = path.normalize(pathnameOnly).replace(/^(\.\.(\/|\\|$))+/, '');
-    const filePath = path.join(__dirname, safeSuffix);
+    // 移除开头的斜杠，确保正确拼接路径
+    const cleanSuffix = safeSuffix.startsWith('/') ? safeSuffix.slice(1) : safeSuffix;
+    const filePath = path.join(__dirname, cleanSuffix);
+    console.log(`[静态资源请求] 清理后的后缀: ${cleanSuffix}`);
+    console.log(`[静态资源请求] 最终文件路径: ${filePath}`);
 
     if (!fs.existsSync(filePath)) {
         console.error(`静态资源未找到: ${filePath}`);
-        return { statusCode: 404, headers: {'Content-Type': 'text/plain'}, body: 'Asset Not Found' };
+        // 列出当前目录的文件，帮助调试
+        try {
+            const files = fs.readdirSync(__dirname);
+            console.log(`[调试] 当前目录文件列表: ${JSON.stringify(files)}`);
+        } catch (err) {
+            console.error(`[调试] 无法列出目录文件: ${err}`);
+        }
+        return { 
+            statusCode: 404, 
+            headers: { ...CORS_HEADERS, 'Content-Type': 'text/plain' }, 
+            body: 'Asset Not Found' 
+        };
     }
 
     try {
@@ -116,13 +135,21 @@ function handleStaticAssetRequest(requestPath) {
         
         return {
             statusCode: 200,
-            headers: { 'Content-Type': contentType },
+            headers: { 
+                ...CORS_HEADERS, 
+                'Content-Type': contentType,
+                'Cache-Control': 'public, max-age=31536000' // 缓存一年
+            },
             body: fileContent.toString('base64'),
             isBase64Encoded: true,
         };
     } catch (error) {
         console.error(`读取静态资源失败: ${error}`);
-        return { statusCode: 500, headers: {'Content-Type': 'text/plain'}, body: 'Error reading asset' };
+        return { 
+            statusCode: 500, 
+            headers: { ...CORS_HEADERS, 'Content-Type': 'text/plain' }, 
+            body: 'Error reading asset' 
+        };
     }
 }
 
@@ -140,12 +167,18 @@ function getContentType(filePath) {
             return 'image/png';
         case '.gif':
             return 'image/gif';
+        case '.webp':
+            return 'image/webp';
         case '.ico':
             return 'image/x-icon';
+        case '.svg':
+            return 'image/svg+xml';
         case '.css':
             return 'text/css';
         case '.js':
             return 'application/javascript';
+        case '.html':
+            return 'text/html; charset=utf-8';
         default:
             return 'application/octet-stream';
     }
