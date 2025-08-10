@@ -1123,7 +1123,8 @@
             </div>
             <div class="profile-container">
                 <div class="profile-inner">
-                    <img class="profile-img" src="whc.jpg" alt="个人头像">
+                    <img class="profile-img" src="whc.jpg" alt="个人头像" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div class="profile-placeholder" style="display:none; align-items:center; justify-content:center; height:100%; background:linear-gradient(135deg, var(--accent-color), var(--accent-color-secondary)); color:var(--dark-bg); font-size:3rem;">👤</div>
                     <div class="profile-job-title">AI产品经理</div>
                 </div>
             </div>
@@ -1205,7 +1206,7 @@
         <div class="carousel">
             <div class="carousel-inner">
                 <div class="carousel-item">
-                    <img class="carousel-img" src="作品1.jpg" alt="媒体采访">
+                    <img class="carousel-img" src="作品1.jpg" alt="媒体采访" onerror="this.style.display='none'; this.nextElementSibling.nextElementSibling.style.background='linear-gradient(135deg, var(--accent-color), var(--accent-color-secondary))'; this.nextElementSibling.nextElementSibling.innerHTML='<div style=&quot;display:flex;align-items:center;justify-content:center;height:100%;font-size:4rem;color:white;&quot;>🎤</div>';">
                     <div class="carousel-data">媒体采访实况</div>
                     <div class="carousel-description">
                         <h3>AI产品经理专访</h3>
@@ -1213,7 +1214,7 @@
                     </div>
                 </div>
                 <div class="carousel-item">
-                    <img class="carousel-img" src="作品2.jpg" alt="现场采访">
+                    <img class="carousel-img" src="作品2.jpg" alt="现场采访" onerror="this.style.display='none'; this.nextElementSibling.nextElementSibling.style.background='linear-gradient(135deg, var(--accent-color), var(--accent-color-secondary))'; this.nextElementSibling.nextElementSibling.innerHTML='<div style=&quot;display:flex;align-items:center;justify-content:center;height:100%;font-size:4rem;color:white;&quot;>📺</div>';">
                     <div class="carousel-data">专业访谈现场</div>
                     <div class="carousel-description">
                         <h3>AI产品发展对谈</h3>
@@ -1221,7 +1222,7 @@
                     </div>
                 </div>
                 <div class="carousel-item">
-                    <img class="carousel-img" src="作品3.jpg" alt="深度访谈">
+                    <img class="carousel-img" src="作品3.jpg" alt="深度访谈" onerror="this.style.display='none'; this.nextElementSibling.nextElementSibling.style.background='linear-gradient(135deg, var(--accent-color), var(--accent-color-secondary))'; this.nextElementSibling.nextElementSibling.innerHTML='<div style=&quot;display:flex;align-items:center;justify-content:center;height:100%;font-size:4rem;color:white;&quot;>💬</div>';">
                     <div class="carousel-data">深度交流</div>
                     <div class="carousel-description">
                         <h3>AI技术与产品融合</h3>
@@ -1491,6 +1492,69 @@
             // 滚动到底部
             chatWindow.scrollTop = chatWindow.scrollHeight;
         }
+
+        // 图片加载诊断功能
+        function diagnoseImageLoading() {
+            console.log('开始诊断图片加载问题...');
+            
+            // 检查所有图片元素
+            const images = document.querySelectorAll('img');
+            const imageStatus = [];
+            
+            images.forEach((img, index) => {
+                const status = {
+                    index: index,
+                    src: img.src,
+                    alt: img.alt,
+                    complete: img.complete,
+                    naturalWidth: img.naturalWidth,
+                    naturalHeight: img.naturalHeight,
+                    loaded: img.complete && img.naturalWidth > 0
+                };
+                
+                imageStatus.push(status);
+                console.log(`图片 ${index}:`, status);
+                
+                // 如果图片没有加载成功，尝试重新加载
+                if (!status.loaded) {
+                    console.log(`图片 ${index} 加载失败，尝试重新加载...`);
+                    img.onerror = () => {
+                        console.error(`图片 ${index} (${img.src}) 重新加载仍然失败`);
+                    };
+                    img.onload = () => {
+                        console.log(`图片 ${index} (${img.src}) 重新加载成功`);
+                    };
+                    // 添加时间戳强制重新加载
+                    const originalSrc = img.src.split('?')[0];
+                    img.src = originalSrc + '?t=' + Date.now();
+                }
+            });
+            
+            // 调用后端图片测试API
+            fetch('/test-images')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('后端图片文件状态:', data);
+                })
+                .catch(error => {
+                    console.error('无法获取后端图片状态:', error);
+                });
+            
+            return imageStatus;
+        }
+
+        // 页面加载完成后自动诊断
+        window.addEventListener('load', () => {
+            setTimeout(diagnoseImageLoading, 2000); // 延迟2秒后检查
+        });
+
+        // 添加键盘快捷键 Ctrl+D 来手动触发诊断
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'd') {
+                e.preventDefault();
+                diagnoseImageLoading();
+            }
+        });
 
     </script>
 </body>

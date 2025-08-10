@@ -50,6 +50,12 @@ exports.handler = async (event, context) => {
     }
   }
   
+  // 2.5. 处理图片测试端点
+  if (requestPath === '/test-images' && httpMethod.toUpperCase() === 'GET') {
+    console.log("匹配到图片测试路由");
+    return handleImageTestRequest();
+  }
+  
   // 3. 处理GET请求
   if (httpMethod.toUpperCase() === 'GET') {
       // 根路径返回主页
@@ -72,6 +78,61 @@ exports.handler = async (event, context) => {
 };
 
 // --- 子函数 ---
+
+/**
+ * 处理图片测试请求，诊断图片文件状态
+ */
+function handleImageTestRequest() {
+    console.log(`[图片测试] 开始检查图片文件状态`);
+    console.log(`[图片测试] 当前工作目录: ${__dirname}`);
+    
+    const imageFiles = ['whc.jpg', '作品1.jpg', '作品2.jpg', '作品3.jpg'];
+    const results = [];
+    
+    imageFiles.forEach(filename => {
+        const filePath = path.join(__dirname, filename);
+        const exists = fs.existsSync(filePath);
+        let size = 0;
+        let error = null;
+        
+        if (exists) {
+            try {
+                const stats = fs.statSync(filePath);
+                size = stats.size;
+            } catch (err) {
+                error = err.message;
+            }
+        }
+        
+        results.push({
+            filename,
+            filePath,
+            exists,
+            size,
+            error
+        });
+        
+        console.log(`[图片测试] ${filename}: exists=${exists}, size=${size}, path=${filePath}`);
+    });
+    
+    // 列出所有文件
+    try {
+        const allFiles = fs.readdirSync(__dirname);
+        console.log(`[图片测试] 目录中的所有文件: ${JSON.stringify(allFiles)}`);
+    } catch (err) {
+        console.error(`[图片测试] 无法列出目录文件: ${err}`);
+    }
+    
+    return {
+        statusCode: 200,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            message: '图片文件状态检查',
+            workingDirectory: __dirname,
+            results: results
+        }, null, 2)
+    };
+}
 
 /**
  * 处理静态主页HTML的请求
