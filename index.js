@@ -37,6 +37,17 @@ exports.handler = async (event, context) => {
   console.log(`[FC解析] 收到请求: 方法=${httpMethod}, 路径=${requestPath}`);
   console.log(`[FC解析] Headers:`, JSON.stringify(headers, null, 2));
 
+  // 统一收集查询参数，支持只有单一路由'/'的场景
+  const queryParams = {};
+  try {
+    const rawUri = (event.path || event.requestPath || headers['x-fc-request-uri'] || headers['x-forwarded-uri'] || headers['x-original-uri'] || '/');
+    const urlForQuery = new URL(rawUri, 'http://local');
+    urlForQuery.searchParams.forEach((v, k) => { queryParams[k] = v; });
+  } catch (_) {}
+  if (event.queries && typeof event.queries === 'object') Object.assign(queryParams, event.queries);
+  if (event.queryParameters && typeof event.queryParameters === 'object') Object.assign(queryParams, event.queryParameters);
+  console.log(`[FC解析] Query 参数:`, JSON.stringify(queryParams));
+
   // 1. 处理浏览器的OPTIONS预检请求
   if (httpMethod.toUpperCase() === 'OPTIONS') {
     console.log("正在处理 OPTIONS 预检请求");
@@ -47,8 +58,8 @@ exports.handler = async (event, context) => {
     };
   }
   
-  // 2. 处理聊天API的POST请求
-  if (requestPath === '/chat' && httpMethod.toUpperCase() === 'POST') {
+  // 2. 处理聊天API的POST请求（兼容单一路由，通过 ?action=chat 触发）
+  if ((requestPath === '/chat' || queryParams.action === 'chat') && httpMethod.toUpperCase() === 'POST') {
     console.log("匹配到聊天API路由，准备调用AI");
     try {
         const chatResponse = await handleChatRequest({ body, headers });
@@ -63,20 +74,25 @@ exports.handler = async (event, context) => {
     }
   }
   
-  // 2.5. 处理图片测试端点
-  if (requestPath === '/test-images' && httpMethod.toUpperCase() === 'GET') {
+  // 2.5. 处理图片测试端点（兼容单一路由，通过 ?action=test-images 触发）
+  if ((requestPath === '/test-images' || queryParams.action === 'test-images') && httpMethod.toUpperCase() === 'GET') {
     console.log("匹配到图片测试路由");
     return handleImageTestRequest();
   }
   
   // 3. 处理GET请求
   if (httpMethod.toUpperCase() === 'GET') {
-      // 根路径返回主页
+      // 3.1 兼容单一路由下的静态资源请求：/?asset=filename
+      if (queryParams.asset) {
+        console.log(`通过查询参数提供静态资源: ${queryParams.asset}`);
+        return handleStaticAssetRequest('/' + queryParams.asset);
+      }
+      // 3.2 根路径返回主页
       if (requestPath === '/') {
         console.log("匹配到主页GET路由");
         return handleStaticPageRequest();
       }
-      // 其他路径尝试作为静态资源（如图片）返回
+      // 3.3 其他路径尝试作为静态资源（如图片）返回
       console.log(`尝试提供静态资源: ${requestPath}`);
       return handleStaticAssetRequest(requestPath);
   }

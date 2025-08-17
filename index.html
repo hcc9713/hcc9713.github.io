@@ -1123,7 +1123,7 @@
             </div>
             <div class="profile-container">
                 <div class="profile-inner">
-                    <img class="profile-img" src="whc.jpg" alt="个人头像" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <img class="profile-img" src="?asset=whc.jpg" alt="个人头像" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                     <div class="profile-placeholder" style="display:none; align-items:center; justify-content:center; height:100%; background:linear-gradient(135deg, var(--accent-color), var(--accent-color-secondary)); color:white; font-size:4rem; font-weight:bold; text-shadow:0 2px 4px rgba(0,0,0,0.3);">王皓辰</div>
                     <div class="profile-job-title">AI产品经理</div>
                 </div>
@@ -1206,7 +1206,7 @@
         <div class="carousel">
             <div class="carousel-inner">
                 <div class="carousel-item">
-                    <img class="carousel-img" src="work_1.jpg" alt="媒体采访" onerror="this.style.display='none'; this.nextElementSibling.nextElementSibling.style.background='linear-gradient(135deg, var(--accent-color), var(--accent-color-secondary))'; this.nextElementSibling.nextElementSibling.innerHTML='<div style=&quot;display:flex;align-items:center;justify-content:center;height:100%;font-size:4rem;color:white;&quot;>🎤</div>';">
+                    <img class="carousel-img" src="?asset=work_1.jpg" alt="媒体采访" onerror="this.style.display='none'; this.nextElementSibling.nextElementSibling.style.background='linear-gradient(135deg, var(--accent-color), var(--accent-color-secondary))'; this.nextElementSibling.nextElementSibling.innerHTML='<div style=&quot;display:flex;align-items:center;justify-content:center;height:100%;font-size:4rem;color:white;&quot;>🎤</div>';">
                     <div class="carousel-data">媒体采访实况</div>
                     <div class="carousel-description">
                         <h3>AI产品经理专访</h3>
@@ -1214,7 +1214,7 @@
                     </div>
                 </div>
                 <div class="carousel-item">
-                    <img class="carousel-img" src="work_2.jpg" alt="现场采访" onerror="this.style.display='none'; this.nextElementSibling.nextElementSibling.style.background='linear-gradient(135deg, var(--accent-color), var(--accent-color-secondary))'; this.nextElementSibling.nextElementSibling.innerHTML='<div style=&quot;display:flex;align-items:center;justify-content:center;height:100%;font-size:4rem;color:white;&quot;>📺</div>';">
+                    <img class="carousel-img" src="?asset=work_2.jpg" alt="现场采访" onerror="this.style.display='none'; this.nextElementSibling.nextElementSibling.style.background='linear-gradient(135deg, var(--accent-color), var(--accent-color-secondary))'; this.nextElementSibling.nextElementSibling.innerHTML='<div style=&quot;display:flex;align-items:center;justify-content:center;height:100%;font-size:4rem;color:white;&quot;>📺</div>';">
                     <div class="carousel-data">专业访谈现场</div>
                     <div class="carousel-description">
                         <h3>AI产品发展对谈</h3>
@@ -1222,7 +1222,7 @@
                     </div>
                 </div>
                 <div class="carousel-item">
-                    <img class="carousel-img" src="work_3.jpg" alt="深度访谈" onerror="this.style.display='none'; this.nextElementSibling.nextElementSibling.style.background='linear-gradient(135deg, var(--accent-color), var(--accent-color-secondary))'; this.nextElementSibling.nextElementSibling.innerHTML='<div style=&quot;display:flex;align-items:center;justify-content:center;height:100%;font-size:4rem;color:white;&quot;>💬</div>';">
+                    <img class="carousel-img" src="?asset=work_3.jpg" alt="深度访谈" onerror="this.style.display='none'; this.nextElementSibling.nextElementSibling.style.background='linear-gradient(135deg, var(--accent-color), var(--accent-color-secondary))'; this.nextElementSibling.nextElementSibling.innerHTML='<div style=&quot;display:flex;align-items:center;justify-content:center;height:100%;font-size:4rem;color:white;&quot;>💬</div>';">
                     <div class="carousel-data">深度交流</div>
                     <div class="carousel-description">
                         <h3>AI技术与产品融合</h3>
@@ -1374,8 +1374,8 @@
         const clearButton = document.getElementById('clear-chat');
         const chatWindow = document.getElementById('chat-window');
         
-        // 阿里云FC API 地址 - 使用相对路径
-        const apiUrl = '/chat';
+        // 阿里云FC API 地址 - 单一路由兼容：使用查询参数 action=chat
+        const apiUrl = '/?action=chat';
         
         // 对话历史记忆 - 维护最近5轮对话
         const MAX_CONVERSATION_ROUNDS = 5;
@@ -1493,6 +1493,41 @@
             chatWindow.scrollTop = chatWindow.scrollHeight;
         }
 
+        // 工具：切换头像图与占位图的显示
+        function showProfileImage(imgEl) {
+            try {
+                if (!imgEl) return;
+                const placeholder = imgEl.nextElementSibling;
+                imgEl.style.display = 'block';
+                if (placeholder && placeholder.classList && placeholder.classList.contains('profile-placeholder')) {
+                    placeholder.style.display = 'none';
+                }
+            } catch (_) {}
+        }
+
+        function showProfilePlaceholder(imgEl) {
+            try {
+                if (!imgEl) return;
+                const placeholder = imgEl.nextElementSibling;
+                imgEl.style.display = 'none';
+                if (placeholder && placeholder.classList && placeholder.classList.contains('profile-placeholder')) {
+                    placeholder.style.display = 'flex';
+                }
+            } catch (_) {}
+        }
+
+        // 首屏头像事件绑定：加载成功恢复显示、失败显示占位
+        (function bindProfileImageEvents() {
+            const profileImg = document.querySelector('.profile-img');
+            if (!profileImg) return;
+            profileImg.addEventListener('load', () => {
+                if (profileImg.naturalWidth > 0) showProfileImage(profileImg);
+            });
+            profileImg.addEventListener('error', () => {
+                showProfilePlaceholder(profileImg);
+            });
+        })();
+
         // 图片加载诊断功能
         function diagnoseImageLoading() {
             console.log('开始诊断图片加载问题...');
@@ -1523,6 +1558,10 @@
                     };
                     img.onload = () => {
                         console.log(`图片 ${index} (${img.src}) 重新加载成功`);
+                        // 如果是被隐藏的头像图，恢复显示
+                        if (img.classList && img.classList.contains('profile-img')) {
+                            showProfileImage(img);
+                        }
                     };
                     // 添加时间戳强制重新加载
                     const originalSrc = img.src.split('?')[0];
@@ -1531,7 +1570,7 @@
             });
             
             // 调用后端图片测试API
-            fetch('/test-images')
+            fetch('/?action=test-images')
                 .then(response => response.json())
                 .then(data => {
                     console.log('后端图片文件状态:', data);
@@ -1550,7 +1589,7 @@
 
         // 添加一个显示诊断结果的浮动窗口
         function showDiagnosticInfo() {
-            fetch('/test-images')
+            fetch('/?action=test-images')
                 .then(response => response.json())
                 .then(data => {
                     const info = document.createElement('div');
