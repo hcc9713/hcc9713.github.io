@@ -17,8 +17,21 @@ exports.handler = async (event, context) => {
 
   // 阿里云FC HTTP触发器事件结构解析
   const httpMethod = event.httpMethod || event.method || 'GET';
-  const requestPath = event.path || event.requestPath || '/';
   const headers = event.headers || {};
+  // 更稳健地获取原始路径（兼容自定义域）
+  let requestPath = event.path 
+    || event.requestPath 
+    || headers['x-fc-request-uri'] 
+    || headers['x-forwarded-uri'] 
+    || headers['x-original-uri'] 
+    || '/';
+  try {
+    // 规范化为 pathname，避免带协议或主机名
+    const urlObj = new URL(requestPath, 'http://local');
+    requestPath = urlObj.pathname || requestPath;
+  } catch (_) {
+    // 非法URL则保持原值
+  }
   const body = event.body || '';
   
   console.log(`[FC解析] 收到请求: 方法=${httpMethod}, 路径=${requestPath}`);
@@ -161,12 +174,16 @@ function handleStaticPageRequest() {
 function handleStaticAssetRequest(requestPath) {
     console.log(`[静态资源请求] 原始路径: ${requestPath}`);
     
-    // 关键修复：从请求路径中移除查询参数（例如 ?t=...），得到纯粹的文件路径
+    // 关键修复：从请求路径中移除查询参数，并做 URL 解码
     const pathnameOnly = requestPath.split('?')[0];
-    console.log(`[静态资源请求] 清理后路径: ${pathnameOnly}`);
+    function safeDecodeURIComponent(p) {
+        try { return decodeURIComponent(p); } catch { return p; }
+    }
+    const decodedPathname = safeDecodeURIComponent(pathnameOnly);
+    console.log(`[静态资源请求] 清理后路径: ${pathnameOnly}, 解码后: ${decodedPathname}`);
 
     // 安全检查：防止路径遍历攻击
-    const safeSuffix = path.normalize(pathnameOnly).replace(/^(\.\.(\/|\\|$))+/, '');
+    const safeSuffix = path.normalize(decodedPathname).replace(/^(\.{2}(\/|\\|$))+/, '');
     // 移除开头的斜杠，确保正确拼接路径
     const cleanSuffix = safeSuffix.startsWith('/') ? safeSuffix.slice(1) : safeSuffix;
     const filePath = path.join(__dirname, cleanSuffix);
