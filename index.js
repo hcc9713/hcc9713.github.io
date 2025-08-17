@@ -86,7 +86,7 @@ function handleImageTestRequest() {
     console.log(`[图片测试] 开始检查图片文件状态`);
     console.log(`[图片测试] 当前工作目录: ${__dirname}`);
     
-    const imageFiles = ['whc.jpg', '作品1.jpg', '作品2.jpg', '作品3.jpg'];
+    const imageFiles = ['whc.jpg', 'work_1.jpg', 'work_2.jpg', 'work_3.jpg'];
     const results = [];
     
     imageFiles.forEach(filename => {
