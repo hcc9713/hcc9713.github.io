@@ -9,7 +9,7 @@ Resources:
     custom_domain:
       Type: 'Aliyun::Serverless::CustomDomain'
       Properties:
-        domainName: www.galahad.website # <-- 这里修改成您的域名
+        domainName: www.hcc1015.wang # <-- 这里修改成您的域名
         protocol: HTTP
         routeConfig:
           routes:
