@@ -1123,7 +1123,7 @@
             </div>
             <div class="profile-container">
                 <div class="profile-inner">
-                    <img class="profile-img" src="./whc.jpg" alt="个人头像" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <img class="profile-img" src="./whc.jpg" alt="个人头像" onerror="window.handleImgErrorWithFallback(this, 'whc.jpg', 'profile');">
                     <div class="profile-placeholder" style="display:none; align-items:center; justify-content:center; height:100%; background:linear-gradient(135deg, var(--accent-color), var(--accent-color-secondary)); color:white; font-size:4rem; font-weight:bold; text-shadow:0 2px 4px rgba(0,0,0,0.3);">王皓辰</div>
                     <div class="profile-job-title">AI产品经理</div>
                 </div>
@@ -1206,7 +1206,7 @@
         <div class="carousel">
             <div class="carousel-inner">
                 <div class="carousel-item">
-                    <img class="carousel-img" src="./work_1.jpg" alt="媒体采访" onerror="this.style.display='none'; this.nextElementSibling.nextElementSibling.style.background='linear-gradient(135deg, var(--accent-color), var(--accent-color-secondary))'; this.nextElementSibling.nextElementSibling.innerHTML='<div style=&quot;display:flex;align-items:center;justify-content:center;height:100%;font-size:4rem;color:white;&quot;>🎤</div>';">
+                    <img class="carousel-img" src="./work_1.jpg" alt="媒体采访" onerror="window.handleImgErrorWithFallback(this, 'work_1.jpg', 'carousel', '🎤');">
                     <div class="carousel-data">媒体采访实况</div>
                     <div class="carousel-description">
                         <h3>AI产品经理专访</h3>
@@ -1214,7 +1214,7 @@
                     </div>
                 </div>
                 <div class="carousel-item">
-                    <img class="carousel-img" src="./work_2.jpg" alt="现场采访" onerror="this.style.display='none'; this.nextElementSibling.nextElementSibling.style.background='linear-gradient(135deg, var(--accent-color), var(--accent-color-secondary))'; this.nextElementSibling.nextElementSibling.innerHTML='<div style=&quot;display:flex;align-items:center;justify-content:center;height:100%;font-size:4rem;color:white;&quot;>📺</div>';">
+                    <img class="carousel-img" src="./work_2.jpg" alt="现场采访" onerror="window.handleImgErrorWithFallback(this, 'work_2.jpg', 'carousel', '📺');">
                     <div class="carousel-data">专业访谈现场</div>
                     <div class="carousel-description">
                         <h3>AI产品发展对谈</h3>
@@ -1222,7 +1222,7 @@
                     </div>
                 </div>
                 <div class="carousel-item">
-                    <img class="carousel-img" src="./work_3.jpg" alt="深度访谈" onerror="this.style.display='none'; this.nextElementSibling.nextElementSibling.style.background='linear-gradient(135deg, var(--accent-color), var(--accent-color-secondary))'; this.nextElementSibling.nextElementSibling.innerHTML='<div style=&quot;display:flex;align-items:center;justify-content:center;height:100%;font-size:4rem;color:white;&quot;>💬</div>';">
+                    <img class="carousel-img" src="./work_3.jpg" alt="深度访谈" onerror="window.handleImgErrorWithFallback(this, 'work_3.jpg', 'carousel', '💬');">
                     <div class="carousel-data">深度交流</div>
                     <div class="carousel-description">
                         <h3>AI技术与产品融合</h3>
@@ -1270,6 +1270,34 @@
                 }
             }, 200);
         });
+
+        // 图片加载失败时的兜底：优先尝试 /?asset= 文件路由，仍失败则显示占位
+        window.handleImgErrorWithFallback = function(imgEl, filename, kind, emoji) {
+            try {
+                if (!imgEl) return;
+                // 避免无限循环：只尝试一次 fallback
+                if (imgEl.dataset && imgEl.dataset.fallbackTried === '1') {
+                    // 已尝试过，显示占位
+                    if (kind === 'profile') {
+                        showProfilePlaceholder(imgEl);
+                    } else {
+                        imgEl.style.display = 'none';
+                        const desc = imgEl.nextElementSibling && imgEl.nextElementSibling.nextElementSibling;
+                        if (desc) {
+                            desc.style.background = 'linear-gradient(135deg, var(--accent-color), var(--accent-color-secondary))';
+                            desc.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:4rem;color:white;">${emoji || '🖼️'}</div>`;
+                        }
+                    }
+                    return;
+                }
+
+                // 标记并尝试使用兼容后端的查询参数路由
+                if (imgEl.dataset) imgEl.dataset.fallbackTried = '1';
+                imgEl.src = `/?asset=${encodeURIComponent(filename)}`;
+            } catch (e) {
+                console.error('handleImgErrorWithFallback error:', e);
+            }
+        };
 
         // 轮播功能
         let currentSlide = 0;
