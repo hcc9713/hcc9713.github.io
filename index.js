@@ -410,3 +410,41 @@ async function handleChatRequest(requestData) {
         req.end();
     });
 }
+
+// --- 本地服务器启动逻辑 (新增) ---
+// 这部分代码只在本地直接用 `node index.js` 运行时才会执行
+// 在阿里云函数计算环境中，这部分代码会被忽略
+if (require.main === module) {
+    const http = require('http');
+    const PORT = process.env.PORT || 8000;
+
+    const server = http.createServer(async (req, res) => {
+        // 1. 将 Node.js 的 req 转换为函数计算期望的 event 格式
+        const event = {
+            httpMethod: req.method,
+            path: req.url,
+            headers: req.headers,
+            body: await new Promise(resolve => {
+                let body = '';
+                req.on('data', chunk => body += chunk.toString());
+                req.on('end', () => resolve(body));
+            })
+        };
+        
+        // 2. 调用我们原来的 handler 函数
+        const fcResponse = await exports.handler(event, {});
+
+        // 3. 将 handler 的返回结果转换为 Node.js 的 res 格式
+        res.writeHead(fcResponse.statusCode, fcResponse.headers);
+        
+        if (fcResponse.isBase64Encoded) {
+            res.end(Buffer.from(fcResponse.body, 'base64'));
+        } else {
+            res.end(fcResponse.body);
+        }
+    });
+
+    server.listen(PORT, () => {
+        console.log(`[本地开发服务器] 启动成功，请访问 http://localhost:${PORT}`);
+    });
+}
