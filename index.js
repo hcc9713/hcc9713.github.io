@@ -79,13 +79,19 @@ exports.handler = async (event, context) => {
 
   // 3. 处理GET请求 - 简化版本
   if (httpMethod.toUpperCase() === 'GET') {
-    // 3.1 根路径返回主页
+    // 3.1 调试端点：检查文件系统状态
+    if (requestPath === '/debug-files') {
+      console.log("匹配到文件调试路由");
+      return handleDebugFilesRequest();
+    }
+    
+    // 3.2 根路径返回主页
     if (requestPath === '/') {
       console.log("匹配到主页GET路由");
       return handleStaticPageRequest();
     }
     
-    // 3.2 其他所有GET请求都视为静态资源请求 (例如 whc.jpg)
+    // 3.3 其他所有GET请求都视为静态资源请求 (例如 whc.jpg)
     console.log(`[GET路由] 作为静态资源处理: ${requestPath}`);
     return handleStaticAssetRequest(requestPath);
   }
@@ -101,7 +107,65 @@ exports.handler = async (event, context) => {
 
 // --- 子函数 ---
 
-
+/**
+ * 调试函数：检查阿里云函数计算环境中的文件状态
+ */
+function handleDebugFilesRequest() {
+    console.log(`[文件调试] 开始检查文件系统状态`);
+    console.log(`[文件调试] 当前工作目录: ${__dirname}`);
+    console.log(`[文件调试] 进程当前目录: ${process.cwd()}`);
+    
+    const imageFiles = ['whc.jpg', 'work_1.jpg', 'work_2.jpg', 'work_3.jpg'];
+    const results = {
+        workingDirectory: __dirname,
+        processDirectory: process.cwd(),
+        imageFiles: [],
+        allFiles: []
+    };
+    
+    // 检查图片文件
+    imageFiles.forEach(filename => {
+        const filePath = path.join(__dirname, filename);
+        let fileInfo = {
+            filename,
+            filePath,
+            exists: false,
+            size: 0,
+            error: null
+        };
+        
+        try {
+            if (fs.existsSync(filePath)) {
+                const stats = fs.statSync(filePath);
+                fileInfo.exists = true;
+                fileInfo.size = stats.size;
+                fileInfo.isFile = stats.isFile();
+                fileInfo.modified = stats.mtime;
+            }
+        } catch (err) {
+            fileInfo.error = err.message;
+        }
+        
+        results.imageFiles.push(fileInfo);
+        console.log(`[文件调试] ${filename}: exists=${fileInfo.exists}, size=${fileInfo.size}`);
+    });
+    
+    // 列出所有文件
+    try {
+        const allFiles = fs.readdirSync(__dirname);
+        results.allFiles = allFiles;
+        console.log(`[文件调试] 目录中的所有文件: ${JSON.stringify(allFiles)}`);
+    } catch (err) {
+        console.error(`[文件调试] 无法列出目录文件: ${err}`);
+        results.error = err.message;
+    }
+    
+    return {
+        statusCode: 200,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify(results, null, 2)
+    };
+}
 
 /**
  * 处理静态主页HTML的请求
@@ -129,6 +193,7 @@ function handleStaticPageRequest() {
  */
 function handleStaticAssetRequest(requestPath) {
     console.log(`[静态资源请求] 请求路径: ${requestPath}`);
+    console.log(`[静态资源请求] 当前目录: ${__dirname}`);
     
     // 简化处理：移除查询参数
     const pathnameOnly = requestPath.split('?')[0];
@@ -139,21 +204,38 @@ function handleStaticAssetRequest(requestPath) {
     const cleanSuffix = safeSuffix.startsWith('/') ? safeSuffix.slice(1) : safeSuffix;
     const filePath = path.join(__dirname, cleanSuffix);
     
+    console.log(`[静态资源请求] pathnameOnly: ${pathnameOnly}`);
+    console.log(`[静态资源请求] cleanSuffix: ${cleanSuffix}`);
     console.log(`[静态资源请求] 最终文件路径: ${filePath}`);
 
-    if (!fs.existsSync(filePath)) {
+    // 检查文件是否存在
+    const fileExists = fs.existsSync(filePath);
+    console.log(`[静态资源请求] 文件存在: ${fileExists}`);
+    
+    if (!fileExists) {
+        // 列出当前目录的文件，帮助调试
+        try {
+            const files = fs.readdirSync(__dirname);
+            console.log(`[调试] 当前目录文件列表: ${JSON.stringify(files)}`);
+        } catch (err) {
+            console.error(`[调试] 无法列出目录文件: ${err}`);
+        }
+        
         console.error(`静态资源未找到: ${filePath}`);
         return { 
             statusCode: 404, 
             headers: { ...CORS_HEADERS, 'Content-Type': 'text/plain' }, 
-            body: 'Asset Not Found' 
+            body: `Asset Not Found: ${cleanSuffix}` 
         };
     }
 
     try {
+        const stats = fs.statSync(filePath);
+        console.log(`[静态资源请求] 文件大小: ${stats.size} bytes`);
+        
         const fileContent = fs.readFileSync(filePath);
         const contentType = getContentType(filePath);
-        console.log(`成功提供静态资源: ${filePath} as ${contentType}`);
+        console.log(`[静态资源请求] 成功读取文件: ${filePath} (${fileContent.length} bytes) as ${contentType}`);
         
         return {
             statusCode: 200,
@@ -169,7 +251,7 @@ function handleStaticAssetRequest(requestPath) {
         return { 
             statusCode: 500, 
             headers: { ...CORS_HEADERS, 'Content-Type': 'text/plain' }, 
-            body: 'Error reading asset' 
+            body: `Error reading asset: ${error.message}` 
         };
     }
 }
