@@ -10,99 +10,75 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
-// 阿里云函数计算FC主处理函数
-exports.handler = async (event, context) => {
+// 阿里云函数计算FC主处理函数 - 使用与riaishere项目完全相同的解析方式
+exports.handler = async (event, context, callback) => {
   console.log('FC Event:', JSON.stringify(event, null, 2));
   console.log('FC Context:', JSON.stringify(context, null, 2));
 
-  // --- 关键修复：解码并解析真实事件（参考riaishere项目） ---
-  let parsedEvent;
-  try {
-    if (typeof event === 'string') {
-      const eventString = event.toString('utf-8');
-      parsedEvent = JSON.parse(eventString);
-    } else {
-      parsedEvent = event;
-    }
-  } catch (error) {
-    console.error('事件解析失败:', error);
-    parsedEvent = event;
-  }
+  // --- 关键修复：使用与riaishere项目完全相同的事件解析方式 ---
+  const eventString = event.toString('utf-8');
+  const parsedEvent = JSON.parse(eventString);
 
-  // 从解析后的事件中提取路径和方法
-  const httpMethod = parsedEvent.httpMethod || parsedEvent.requestContext?.http?.method || parsedEvent.method || 'GET';
-  const headers = parsedEvent.headers || {};
-  let requestPath = parsedEvent.rawPath || parsedEvent.path || '/';
+  // 从解析后的事件中，提取出真正的路径和方法
+  const requestPath = parsedEvent.rawPath || parsedEvent.path || '/';
+  const httpMethod = parsedEvent.requestContext.http.method;
   
-  // 简化查询参数解析
-  const queryParams = {};
-  try {
-    if (requestPath.includes('?')) {
-      const urlForQuery = new URL(requestPath, 'http://local');
-      urlForQuery.searchParams.forEach((v, k) => { queryParams[k] = v; });
-      requestPath = urlForQuery.pathname;
-    }
-    // 补充从event中获取query参数
-    if (parsedEvent.queryStringParameters) Object.assign(queryParams, parsedEvent.queryStringParameters);
-  } catch (_) {
-    console.warn('查询参数解析失败，继续处理');
-  }
-
-  console.log(`[FC解析] 收到请求: 方法=${httpMethod}, 路径=${requestPath}`);
-  console.log(`[FC解析] Query 参数:`, JSON.stringify(queryParams));
+  console.log(`[最终解析] 收到请求: 方法=${httpMethod}, 路径=${requestPath}`);
 
   // 1. 处理浏览器的OPTIONS预检请求
   if (httpMethod.toUpperCase() === 'OPTIONS') {
     console.log("正在处理 OPTIONS 预检请求");
-    return {
-      statusCode: 204,
-      headers: CORS_HEADERS,
-      body: ''
-    };
+    callback(null, { statusCode: 204, headers: CORS_HEADERS, body: '' });
+    return;
   }
   
-  // 2. 处理聊天API的POST请求（兼容单一路由，通过 ?action=chat 触发）
-  if ((requestPath === '/chat' || queryParams.action === 'chat') && httpMethod.toUpperCase() === 'POST') {
+  // 2. 处理聊天API的POST请求
+  if (requestPath === '/chat' && httpMethod.toUpperCase() === 'POST') {
     console.log("匹配到聊天API路由，准备调用AI");
     try {
         const chatResponse = await handleChatRequest(parsedEvent);
-        return chatResponse;
+        callback(null, chatResponse);
+        return;
     } catch (e) {
         console.error("AI聊天处理出错:", e);
-        return {
+        callback(null, {
             statusCode: 500,
             headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
             body: JSON.stringify({ error: "AI服务暂时不可用" })
-        };
+        });
+        return;
     }
   }
 
-  // 3. 处理GET请求 - 简化版本
+  // 3. 处理GET请求
   if (httpMethod.toUpperCase() === 'GET') {
     // 3.1 调试端点：检查文件系统状态
     if (requestPath === '/debug-files') {
       console.log("匹配到文件调试路由");
-      return handleDebugFilesRequest();
+      callback(null, handleDebugFilesRequest());
+      return;
     }
     
     // 3.2 根路径返回主页
     if (requestPath === '/') {
       console.log("匹配到主页GET路由");
-      return handleStaticPageRequest();
+      callback(null, handleStaticPageRequest());
+      return;
     }
     
     // 3.3 其他所有GET请求都视为静态资源请求 (例如 whc.jpg)
     console.log(`[GET路由] 作为静态资源处理: ${requestPath}`);
-    return handleStaticAssetRequest(requestPath);
+    callback(null, handleStaticAssetRequest(requestPath));
+    return;
   }
 
   // 4. 对于其他所有未知请求，返回404
   console.log(`[路由结束] 未匹配任何已知路由, for ${httpMethod} ${requestPath}`);
-  return {
+  callback(null, {
       statusCode: 404,
       headers: { ...CORS_HEADERS, 'Content-Type': 'text/plain; charset=utf-8' },
       body: 'Not Found'
-  };
+  });
 };
 
 // --- 子函数 ---
