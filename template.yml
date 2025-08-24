@@ -25,7 +25,7 @@ Resources:
         CodeUri: './'
         Handler: index.handler
         Runtime: nodejs18
-        Timeout: 30
-        MemorySize: 512
+        Timeout: 60
+        MemorySize: 1024
         EnvironmentVariables:
           DEEPSEEK_API_KEY: '请在这里替换成您自己的API密钥' # <-- 请在这里替换成您的密钥
