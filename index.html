@@ -1123,7 +1123,7 @@
             </div>
             <div class="profile-container">
                 <div class="profile-inner">
-                    <img class="profile-img" src="/whc.jpg" alt="个人头像">
+                    <img class="profile-img" src="whc.jpg" alt="个人头像">
                     <div class="profile-placeholder" style="display:none; align-items:center; justify-content:center; height:100%; background:linear-gradient(135deg, var(--accent-color), var(--accent-color-secondary)); color:white; font-size:4rem; font-weight:bold; text-shadow:0 2px 4px rgba(0,0,0,0.3);"></div>
                     <div class="profile-job-title">AI产品经理</div>
                 </div>
@@ -1206,7 +1206,7 @@
         <div class="carousel">
             <div class="carousel-inner">
                 <div class="carousel-item">
-                    <img class="carousel-img" src="/work_1.jpg" alt="媒体采访">
+                    <img class="carousel-img" src="work_1.jpg" alt="媒体采访">
                     <div class="carousel-data">媒体采访实况</div>
                     <div class="carousel-description">
                         <h3>AI产品经理专访</h3>
@@ -1214,7 +1214,7 @@
                     </div>
                 </div>
                 <div class="carousel-item">
-                    <img class="carousel-img" src="/work_2.jpg" alt="现场采访">
+                    <img class="carousel-img" src="work_2.jpg" alt="现场采访">
                     <div class="carousel-data">专业访谈现场</div>
                     <div class="carousel-description">
                         <h3>AI产品发展对谈</h3>
@@ -1222,7 +1222,7 @@
                     </div>
                 </div>
                 <div class="carousel-item">
-                    <img class="carousel-img" src="/work_3.jpg" alt="深度访谈">
+                    <img class="carousel-img" src="work_3.jpg" alt="深度访谈">
                     <div class="carousel-data">深度交流</div>
                     <div class="carousel-description">
                         <h3>AI技术与产品融合</h3>
@@ -1271,31 +1271,21 @@
             }, 200);
         });
 
-        // 图片加载失败时的兜底：优先尝试 /?asset= 文件路由，仍失败则显示占位
-        window.handleImgErrorWithFallback = function(imgEl, filename, kind, emoji) {
+        // 简化的图片错误处理
+        window.handleImgError = function(imgEl) {
             try {
                 if (!imgEl) return;
-                // 避免无限循环：只尝试一次 fallback
-                if (imgEl.dataset && imgEl.dataset.fallbackTried === '1') {
-                    // 已尝试过，显示占位
-                    if (kind === 'profile') {
-                        showProfilePlaceholder(imgEl);
-                    } else {
-                        imgEl.style.display = 'none';
-                        const desc = imgEl.nextElementSibling && imgEl.nextElementSibling.nextElementSibling;
-                        if (desc) {
-                            desc.style.background = 'linear-gradient(135deg, var(--accent-color), var(--accent-color-secondary))';
-                            desc.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:4rem;color:white;">${emoji || '🖼️'}</div>`;
-                        }
-                    }
-                    return;
+                console.warn('图片加载失败:', imgEl.src);
+                
+                // 对于头像，显示占位符
+                if (imgEl.classList.contains('profile-img')) {
+                    showProfilePlaceholder(imgEl);
+                } else {
+                    // 对于其他图片，可以隐藏或显示占位
+                    imgEl.style.display = 'none';
                 }
-
-                // 标记并尝试使用兼容后端的查询参数路由
-                if (imgEl.dataset) imgEl.dataset.fallbackTried = '1';
-                imgEl.src = `/?asset=${encodeURIComponent(filename)}`;
             } catch (e) {
-                console.error('handleImgErrorWithFallback error:', e);
+                console.error('handleImgError error:', e);
             }
         };
 
@@ -1544,10 +1534,17 @@
             } catch (_) {}
         }
 
-        // 首屏头像事件绑定：加载成功恢复显示、失败显示占位
+        // 首屏头像事件绑定：添加时间戳并处理加载事件
         (function bindProfileImageEvents() {
             const profileImg = document.querySelector('.profile-img');
             if (!profileImg) return;
+            
+            // 为图片添加时间戳，参考riaishere项目做法
+            const originalSrc = profileImg.src;
+            if (!originalSrc.includes('?t=')) {
+                profileImg.src = originalSrc + '?t=' + new Date().getTime();
+            }
+            
             profileImg.addEventListener('load', () => {
                 if (profileImg.naturalWidth > 0) showProfileImage(profileImg);
             });
@@ -1556,99 +1553,37 @@
             });
         })();
 
-        // 图片加载诊断功能
-        function diagnoseImageLoading() {
-            console.log('开始诊断图片加载问题...');
-            
-            // 检查所有图片元素
+        // 简化的图片状态检查
+        function checkImageStatus() {
             const images = document.querySelectorAll('img');
-            const imageStatus = [];
-            
             images.forEach((img, index) => {
-                const status = {
-                    index: index,
-                    src: img.src,
-                    alt: img.alt,
-                    complete: img.complete,
-                    naturalWidth: img.naturalWidth,
-                    naturalHeight: img.naturalHeight,
-                    loaded: img.complete && img.naturalWidth > 0
-                };
-                
-                imageStatus.push(status);
-                console.log(`图片 ${index}:`, status);
-                
-                // 如果图片没有加载成功，尝试重新加载
-                if (!status.loaded) {
-                    console.log(`图片 ${index} 加载失败，尝试重新加载...`);
-                    img.onerror = () => {
-                        console.error(`图片 ${index} (${img.src}) 重新加载仍然失败`);
-                    };
-                    img.onload = () => {
-                        console.log(`图片 ${index} (${img.src}) 重新加载成功`);
-                        // 如果是被隐藏的头像图，恢复显示
-                        if (img.classList && img.classList.contains('profile-img')) {
-                            showProfileImage(img);
-                        }
-                    };
-                    // 添加时间戳强制重新加载
-                    const originalSrc = img.src.split('?')[0];
-                    img.src = originalSrc + '?t=' + Date.now();
+                if (img.complete && img.naturalWidth > 0) {
+                    console.log(`图片 ${index} 加载成功:`, img.src);
+                } else {
+                    console.warn(`图片 ${index} 加载失败:`, img.src);
+                    handleImgError(img);
                 }
             });
-            
-            // 调用后端图片测试API
-            fetch('/?action=test-images')
-                .then(response => response.json())
-                .then(data => {
-                    console.log('后端图片文件状态:', data);
-                })
-                .catch(error => {
-                    console.error('无法获取后端图片状态:', error);
-                });
-            
-            return imageStatus;
         }
 
-        // 页面加载完成后自动诊断
+        // 为所有图片添加时间戳，避免缓存问题
+        function addTimestampToImages() {
+            const allImages = document.querySelectorAll('img');
+            const timestamp = new Date().getTime();
+            allImages.forEach(img => {
+                if (!img.src.includes('?t=')) {
+                    img.src = img.src + '?t=' + timestamp;
+                }
+            });
+        }
+
+        // 页面加载完成后处理图片
         window.addEventListener('load', () => {
-            setTimeout(diagnoseImageLoading, 2000); // 延迟2秒后检查
+            addTimestampToImages(); // 立即为所有图片添加时间戳
+            setTimeout(checkImageStatus, 2000); // 延迟2秒后检查图片状态
         });
 
-        // 添加一个显示诊断结果的浮动窗口
-        function showDiagnosticInfo() {
-            fetch('/?action=test-images')
-                .then(response => response.json())
-                .then(data => {
-                    const info = document.createElement('div');
-                    info.style.cssText = `
-                        position: fixed; top: 20px; right: 20px; 
-                        background: rgba(0,0,0,0.9); color: white; 
-                        padding: 20px; border-radius: 10px; 
-                        max-width: 400px; z-index: 10000;
-                        font-family: monospace; font-size: 12px;
-                        max-height: 400px; overflow-y: auto;
-                    `;
-                    info.innerHTML = `
-                        <h3>🔍 图片诊断报告</h3>
-                        <button onclick="this.parentElement.remove()" style="float:right; background:red; color:white; border:none; padding:5px;">×</button>
-                        <pre>${JSON.stringify(data, null, 2)}</pre>
-                    `;
-                    document.body.appendChild(info);
-                })
-                .catch(error => {
-                    console.error('诊断请求失败:', error);
-                    alert('诊断请求失败: ' + error.message);
-                });
-        }
 
-        // 添加键盘快捷键 Ctrl+D 来手动触发诊断
-        document.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.key === 'd') {
-                e.preventDefault();
-                showDiagnosticInfo();
-            }
-        });
 
     </script>
 </body>

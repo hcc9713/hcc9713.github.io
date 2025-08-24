@@ -15,29 +15,40 @@ exports.handler = async (event, context) => {
   console.log('FC Event:', JSON.stringify(event, null, 2));
   console.log('FC Context:', JSON.stringify(context, null, 2));
 
-  // 阿里云FC HTTP触发器事件结构解析
-  const httpMethod = event.httpMethod || event.method || 'GET';
-  const headers = event.headers || {};
-  
-  // 关键修复：不再信任 event.path，优先从 header 获取真实请求路径
-  // 阿里云 FC + 自定义域名场景，真实路径通常在 x-forwarded-uri
-  let requestPath = headers['x-forwarded-uri'] || event.path || '/';
-  
-  // 从真实路径中解析出 query 参数
-  const queryParams = {};
+  // --- 关键修复：解码并解析真实事件（参考riaishere项目） ---
+  let parsedEvent;
   try {
-    const urlForQuery = new URL(requestPath, 'http://local');
-    urlForQuery.searchParams.forEach((v, k) => { queryParams[k] = v; });
-    // 将解析出的路径部分（不含query）重新赋值给 requestPath
-    requestPath = urlForQuery.pathname;
-  } catch (_) {
-    // 如果解析失败，尝试从 event 中获取
-    if (event.queries && typeof event.queries === 'object') Object.assign(queryParams, event.queries);
-    if (event.queryParameters && typeof event.queryParameters === 'object') Object.assign(queryParams, event.queryParameters);
+    if (typeof event === 'string') {
+      const eventString = event.toString('utf-8');
+      parsedEvent = JSON.parse(eventString);
+    } else {
+      parsedEvent = event;
+    }
+  } catch (error) {
+    console.error('事件解析失败:', error);
+    parsedEvent = event;
   }
 
-  console.log(`[FC解析] 收到请求: 方法=${httpMethod}, 原始URI(From Header)='${headers['x-forwarded-uri']}', 解析后路径='${requestPath}'`);
-  console.log(`[FC解析] Headers:`, JSON.stringify(headers, null, 2));
+  // 从解析后的事件中提取路径和方法
+  const httpMethod = parsedEvent.httpMethod || parsedEvent.requestContext?.http?.method || parsedEvent.method || 'GET';
+  const headers = parsedEvent.headers || {};
+  let requestPath = parsedEvent.rawPath || parsedEvent.path || '/';
+  
+  // 简化查询参数解析
+  const queryParams = {};
+  try {
+    if (requestPath.includes('?')) {
+      const urlForQuery = new URL(requestPath, 'http://local');
+      urlForQuery.searchParams.forEach((v, k) => { queryParams[k] = v; });
+      requestPath = urlForQuery.pathname;
+    }
+    // 补充从event中获取query参数
+    if (parsedEvent.queryStringParameters) Object.assign(queryParams, parsedEvent.queryStringParameters);
+  } catch (_) {
+    console.warn('查询参数解析失败，继续处理');
+  }
+
+  console.log(`[FC解析] 收到请求: 方法=${httpMethod}, 路径=${requestPath}`);
   console.log(`[FC解析] Query 参数:`, JSON.stringify(queryParams));
 
   // 1. 处理浏览器的OPTIONS预检请求
@@ -54,7 +65,7 @@ exports.handler = async (event, context) => {
   if ((requestPath === '/chat' || queryParams.action === 'chat') && httpMethod.toUpperCase() === 'POST') {
     console.log("匹配到聊天API路由，准备调用AI");
     try {
-        const chatResponse = await handleChatRequest({ body, headers });
+        const chatResponse = await handleChatRequest(parsedEvent);
         return chatResponse;
     } catch (e) {
         console.error("AI聊天处理出错:", e);
@@ -66,47 +77,15 @@ exports.handler = async (event, context) => {
     }
   }
 
-  // 3. 集中处理所有GET请求
+  // 3. 处理GET请求 - 简化版本
   if (httpMethod.toUpperCase() === 'GET') {
-    // 3.0 新增：调试端点，用于查看FC传入的原始事件
-    if (queryParams.action === 'debug') {
-        console.log("匹配到调试路由");
-        return {
-            statusCode: 200,
-            headers: { ...CORS_HEADERS, 'Content-Type': 'application/json; charset=utf-8' },
-            body: JSON.stringify({
-                message: "FC Event, Context, and Parsed Values Debug Info",
-                event: event,
-                context: context,
-                parsed: {
-                  httpMethod,
-                  requestPath,
-                  queryParams
-                }
-            }, null, 2)
-        };
-    }
-
-    // 3.1 诊断工具
-    if (queryParams.action === 'test-images') {
-      console.log("匹配到图片测试路由");
-      return handleImageTestRequest();
-    }
-    
-    // 3.2 通过查询参数提供静态资源
-    if (queryParams.asset) {
-      console.log(`通过查询参数提供静态资源: ${queryParams.asset}`);
-      // 传入的 asset 值可能不带/，统一加上
-      return handleStaticAssetRequest('/' + queryParams.asset);
-    }
-
-    // 3.3 根路径返回主页
+    // 3.1 根路径返回主页
     if (requestPath === '/') {
       console.log("匹配到主页GET路由");
       return handleStaticPageRequest();
     }
     
-    // 3.4 其他所有GET请求都视为静态资源请求 (例如 /whc.jpg)
+    // 3.2 其他所有GET请求都视为静态资源请求 (例如 whc.jpg)
     console.log(`[GET路由] 作为静态资源处理: ${requestPath}`);
     return handleStaticAssetRequest(requestPath);
   }
@@ -122,60 +101,7 @@ exports.handler = async (event, context) => {
 
 // --- 子函数 ---
 
-/**
- * 处理图片测试请求，诊断图片文件状态
- */
-function handleImageTestRequest() {
-    console.log(`[图片测试] 开始检查图片文件状态`);
-    console.log(`[图片测试] 当前工作目录: ${__dirname}`);
-    
-    const imageFiles = ['whc.jpg', 'work_1.jpg', 'work_2.jpg', 'work_3.jpg'];
-    const results = [];
-    
-    imageFiles.forEach(filename => {
-        const filePath = path.join(__dirname, filename);
-        const exists = fs.existsSync(filePath);
-        let size = 0;
-        let error = null;
-        
-        if (exists) {
-            try {
-                const stats = fs.statSync(filePath);
-                size = stats.size;
-            } catch (err) {
-                error = err.message;
-            }
-        }
-        
-        results.push({
-            filename,
-            filePath,
-            exists,
-            size,
-            error
-        });
-        
-        console.log(`[图片测试] ${filename}: exists=${exists}, size=${size}, path=${filePath}`);
-    });
-    
-    // 列出所有文件
-    try {
-        const allFiles = fs.readdirSync(__dirname);
-        console.log(`[图片测试] 目录中的所有文件: ${JSON.stringify(allFiles)}`);
-    } catch (err) {
-        console.error(`[图片测试] 无法列出目录文件: ${err}`);
-    }
-    
-    return {
-        statusCode: 200,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            message: '图片文件状态检查',
-            workingDirectory: __dirname,
-            results: results
-        }, null, 2)
-    };
-}
+
 
 /**
  * 处理静态主页HTML的请求
@@ -198,37 +124,25 @@ function handleStaticPageRequest() {
 }
 
 /**
- * 处理静态资源（如图片）的请求
- * @param {string} requestPath - 请求的资源路径, e.g., /Ria.jpg?t=12345
+ * 处理静态资源（如图片）的请求 - 简化版本（参考riaishere项目）
+ * @param {string} requestPath - 请求的资源路径, e.g., /whc.jpg?t=12345
  */
 function handleStaticAssetRequest(requestPath) {
-    console.log(`[静态资源请求] 原始路径: ${requestPath}`);
+    console.log(`[静态资源请求] 请求路径: ${requestPath}`);
     
-    // 关键修复：从请求路径中移除查询参数，并做 URL 解码
+    // 简化处理：移除查询参数
     const pathnameOnly = requestPath.split('?')[0];
-    function safeDecodeURIComponent(p) {
-        try { return decodeURIComponent(p); } catch { return p; }
-    }
-    const decodedPathname = safeDecodeURIComponent(pathnameOnly);
-    console.log(`[静态资源请求] 清理后路径: ${pathnameOnly}, 解码后: ${decodedPathname}`);
-
+    
     // 安全检查：防止路径遍历攻击
-    const safeSuffix = path.normalize(decodedPathname).replace(/^(\.{2}(\/|\\|$))+/, '');
+    const safeSuffix = path.normalize(pathnameOnly).replace(/^(\.{2}(\/|\\|$))+/, '');
     // 移除开头的斜杠，确保正确拼接路径
     const cleanSuffix = safeSuffix.startsWith('/') ? safeSuffix.slice(1) : safeSuffix;
     const filePath = path.join(__dirname, cleanSuffix);
-    console.log(`[静态资源请求] 清理后的后缀: ${cleanSuffix}`);
+    
     console.log(`[静态资源请求] 最终文件路径: ${filePath}`);
 
     if (!fs.existsSync(filePath)) {
         console.error(`静态资源未找到: ${filePath}`);
-        // 列出当前目录的文件，帮助调试
-        try {
-            const files = fs.readdirSync(__dirname);
-            console.log(`[调试] 当前目录文件列表: ${JSON.stringify(files)}`);
-        } catch (err) {
-            console.error(`[调试] 无法列出目录文件: ${err}`);
-        }
         return { 
             statusCode: 404, 
             headers: { ...CORS_HEADERS, 'Content-Type': 'text/plain' }, 
@@ -245,8 +159,7 @@ function handleStaticAssetRequest(requestPath) {
             statusCode: 200,
             headers: { 
                 ...CORS_HEADERS, 
-                'Content-Type': contentType,
-                'Cache-Control': 'public, max-age=31536000' // 缓存一年
+                'Content-Type': contentType
             },
             body: fileContent.toString('base64'),
             isBase64Encoded: true,
@@ -294,17 +207,17 @@ function getContentType(filePath) {
 
 /**
  * 处理对AI聊天API的请求（阿里云FC版本）
- * @param {object} requestData - 包含body和headers的请求数据
+ * @param {object} parsedEvent - 已解析的事件对象
  */
-async function handleChatRequest(requestData) {
+async function handleChatRequest(parsedEvent) {
     let userMessage, recentConversations;
     try {
-        if (!requestData.body) throw new Error("Request body is empty.");
+        if (!parsedEvent.body) throw new Error("Request body is empty.");
         
-        // 阿里云FC可能会将body编码为base64，需要处理
-        let bodyString = requestData.body;
-        if (requestData.headers && requestData.headers['content-encoding'] === 'base64') {
-            bodyString = Buffer.from(requestData.body, 'base64').toString();
+        // 处理body编码
+        let bodyString = parsedEvent.body;
+        if (parsedEvent.isBase64Encoded) {
+            bodyString = Buffer.from(parsedEvent.body, 'base64').toString();
         }
         
         const body = JSON.parse(bodyString);
@@ -424,7 +337,6 @@ async function handleChatRequest(requestData) {
         req.end();
     });
 }
-
 // --- 本地服务器启动逻辑 (新增) ---
 // 这部分代码只在本地直接用 `node index.js` 运行时才会执行
 // 在阿里云函数计算环境中，这部分代码会被忽略
