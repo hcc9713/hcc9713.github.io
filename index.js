@@ -115,12 +115,12 @@ exports.handler = async (event, context) => {
     }
     
     // 3.4 其他所有GET请求都视为静态资源请求 (例如 /whc.jpg)
-    console.log(`尝试提供静态资源: ${requestPath}`);
+    console.log(`[GET路由] 作为静态资源处理: ${requestPath}`);
     return handleStaticAssetRequest(requestPath);
   }
 
   // 4. 对于其他所有未知请求，返回404
-  console.log(`未匹配到任何路由，返回404 for ${httpMethod} ${requestPath}`);
+  console.log(`[路由结束] 未匹配任何已知路由, for ${httpMethod} ${requestPath}`);
   return {
       statusCode: 404,
       headers: { ...CORS_HEADERS, 'Content-Type': 'text/plain; charset=utf-8' },
