@@ -18,34 +18,26 @@ exports.handler = async (event, context) => {
   // 阿里云FC HTTP触发器事件结构解析
   const httpMethod = event.httpMethod || event.method || 'GET';
   const headers = event.headers || {};
-  // 更稳健地获取原始路径（兼容自定义域）
-  let requestPath = event.path 
-    || event.requestPath 
-    || headers['x-fc-request-uri'] 
-    || headers['x-forwarded-uri'] 
-    || headers['x-original-uri'] 
-    || '/';
-  try {
-    // 规范化为 pathname，避免带协议或主机名
-    const urlObj = new URL(requestPath, 'http://local');
-    requestPath = urlObj.pathname || requestPath;
-  } catch (_) {
-    // 非法URL则保持原值
-  }
-  const body = event.body || '';
   
-  console.log(`[FC解析] 收到请求: 方法=${httpMethod}, 路径=${requestPath}`);
-  console.log(`[FC解析] Headers:`, JSON.stringify(headers, null, 2));
-
-  // 统一收集查询参数，支持只有单一路由'/'的场景
+  // 关键修复：不再信任 event.path，优先从 header 获取真实请求路径
+  // 阿里云 FC + 自定义域名场景，真实路径通常在 x-forwarded-uri
+  let requestPath = headers['x-forwarded-uri'] || event.path || '/';
+  
+  // 从真实路径中解析出 query 参数
   const queryParams = {};
   try {
-    const rawUri = (event.path || event.requestPath || headers['x-fc-request-uri'] || headers['x-forwarded-uri'] || headers['x-original-uri'] || '/');
-    const urlForQuery = new URL(rawUri, 'http://local');
+    const urlForQuery = new URL(requestPath, 'http://local');
     urlForQuery.searchParams.forEach((v, k) => { queryParams[k] = v; });
-  } catch (_) {}
-  if (event.queries && typeof event.queries === 'object') Object.assign(queryParams, event.queries);
-  if (event.queryParameters && typeof event.queryParameters === 'object') Object.assign(queryParams, event.queryParameters);
+    // 将解析出的路径部分（不含query）重新赋值给 requestPath
+    requestPath = urlForQuery.pathname;
+  } catch (_) {
+    // 如果解析失败，尝试从 event 中获取
+    if (event.queries && typeof event.queries === 'object') Object.assign(queryParams, event.queries);
+    if (event.queryParameters && typeof event.queryParameters === 'object') Object.assign(queryParams, event.queryParameters);
+  }
+
+  console.log(`[FC解析] 收到请求: 方法=${httpMethod}, 原始URI(From Header)='${headers['x-forwarded-uri']}', 解析后路径='${requestPath}'`);
+  console.log(`[FC解析] Headers:`, JSON.stringify(headers, null, 2));
   console.log(`[FC解析] Query 参数:`, JSON.stringify(queryParams));
 
   // 1. 处理浏览器的OPTIONS预检请求
