@@ -339,32 +339,71 @@ async function handleChatRequest(parsedEvent) {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+          'Content-Length': Buffer.byteLength(postData)
         },
+        timeout: 30000, // 30秒超时
     };
+
+    console.log("发送请求到DeepSeek API:", {
+        hostname: options.hostname,
+        path: options.path,
+        messageLength: userMessage.length,
+        conversationHistory: recentConversations.length
+    });
 
     return new Promise((resolve) => {
         const req = https.request(options, (res) => {
             let responseData = '';
+            
+            console.log(`DeepSeek API响应状态: ${res.statusCode}`);
             
             res.on('data', (chunk) => {
                 responseData += chunk;
             });
             
             res.on('end', () => {
+                console.log(`收到DeepSeek API响应，长度: ${responseData.length} 字符`);
+                
                 try {
                     const parsedResponse = JSON.parse(responseData);
-                    console.log("AI响应成功");
                     
-                    if (parsedResponse.error) {
+                    // 检查HTTP状态码
+                    if (res.statusCode !== 200) {
+                        console.error("DeepSeek API返回错误状态码:", res.statusCode);
+                        console.error("错误响应内容:", responseData);
                         resolve({
                             statusCode: 500,
                             headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-                            body: JSON.stringify({error: parsedResponse.error.message})
+                            body: JSON.stringify({error: `API返回状态码: ${res.statusCode}`})
+                        });
+                        return;
+                    }
+                    
+                    // 检查响应中的错误
+                    if (parsedResponse.error) {
+                        console.error("DeepSeek API返回业务错误:", parsedResponse.error);
+                        resolve({
+                            statusCode: 500,
+                            headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+                            body: JSON.stringify({error: parsedResponse.error.message || 'API调用失败'})
+                        });
+                        return;
+                    }
+                    
+                    // 检查响应结构
+                    if (!parsedResponse.choices || !parsedResponse.choices[0] || !parsedResponse.choices[0].message) {
+                        console.error("DeepSeek API响应结构异常:", parsedResponse);
+                        resolve({
+                            statusCode: 500,
+                            headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+                            body: JSON.stringify({error: 'API响应结构异常'})
                         });
                         return;
                     }
                     
                     const aiReply = parsedResponse.choices[0].message.content;
+                    console.log("AI响应成功，回复长度:", aiReply.length);
+                    
                     resolve({
                         statusCode: 200,
                         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
@@ -373,12 +412,24 @@ async function handleChatRequest(parsedEvent) {
                     
                 } catch(e) {
                     console.error("解析AI响应失败:", e);
+                    console.error("原始响应数据:", responseData);
                     resolve({
                         statusCode: 500,
                         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
                         body: JSON.stringify({error: '解析AI响应失败'})
                     });
                 }
+            });
+        });
+
+        // 添加超时处理
+        req.setTimeout(30000, () => {
+            console.error("DeepSeek API请求超时");
+            req.destroy();
+            resolve({
+                statusCode: 500,
+                headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+                body: JSON.stringify({error: 'API请求超时'})
             });
         });
 

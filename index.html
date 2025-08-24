@@ -1398,8 +1398,8 @@
         const clearButton = document.getElementById('clear-chat');
         const chatWindow = document.getElementById('chat-window');
         
-        // 阿里云FC API 地址 - 单一路由兼容：使用查询参数 action=chat
-        const apiUrl = '/?action=chat';
+        // 阿里云FC API 地址 - 直接使用chat路径
+        const apiUrl = '/chat';
         
         // 对话历史记忆 - 维护最近5轮对话
         const MAX_CONVERSATION_ROUNDS = 5;
@@ -1435,8 +1435,14 @@
                 });
 
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.reply || 'API request failed');
+                    let errorMessage = `HTTP ${response.status}`;
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.error || errorData.reply || errorMessage;
+                    } catch (e) {
+                        console.error('解析错误响应失败:', e);
+                    }
+                    throw new Error(errorMessage);
                 }
 
                 const data = await response.json();
