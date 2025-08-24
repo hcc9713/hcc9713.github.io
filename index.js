@@ -73,28 +73,31 @@ exports.handler = async (event, context) => {
         };
     }
   }
-  
-  // 2.5. 处理图片测试端点（兼容单一路由，通过 ?action=test-images 触发）
-  if ((requestPath === '/test-images' || queryParams.action === 'test-images') && httpMethod.toUpperCase() === 'GET') {
-    console.log("匹配到图片测试路由");
-    return handleImageTestRequest();
-  }
-  
-  // 3. 处理GET请求
+
+  // 3. 集中处理所有GET请求
   if (httpMethod.toUpperCase() === 'GET') {
-      // 3.1 兼容单一路由下的静态资源请求：/?asset=filename
-      if (queryParams.asset) {
-        console.log(`通过查询参数提供静态资源: ${queryParams.asset}`);
-        return handleStaticAssetRequest('/' + queryParams.asset);
-      }
-      // 3.2 根路径返回主页
-      if (requestPath === '/') {
-        console.log("匹配到主页GET路由");
-        return handleStaticPageRequest();
-      }
-      // 3.3 其他路径尝试作为静态资源（如图片）返回
-      console.log(`尝试提供静态资源: ${requestPath}`);
-      return handleStaticAssetRequest(requestPath);
+    // 3.1 诊断工具
+    if (queryParams.action === 'test-images') {
+      console.log("匹配到图片测试路由");
+      return handleImageTestRequest();
+    }
+    
+    // 3.2 通过查询参数提供静态资源
+    if (queryParams.asset) {
+      console.log(`通过查询参数提供静态资源: ${queryParams.asset}`);
+      // 传入的 asset 值可能不带/，统一加上
+      return handleStaticAssetRequest('/' + queryParams.asset);
+    }
+
+    // 3.3 根路径返回主页
+    if (requestPath === '/') {
+      console.log("匹配到主页GET路由");
+      return handleStaticPageRequest();
+    }
+    
+    // 3.4 其他所有GET请求都视为静态资源请求 (例如 /whc.jpg)
+    console.log(`尝试提供静态资源: ${requestPath}`);
+    return handleStaticAssetRequest(requestPath);
   }
 
   // 4. 对于其他所有未知请求，返回404
