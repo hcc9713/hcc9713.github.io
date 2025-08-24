@@ -76,6 +76,25 @@ exports.handler = async (event, context) => {
 
   // 3. 集中处理所有GET请求
   if (httpMethod.toUpperCase() === 'GET') {
+    // 3.0 新增：调试端点，用于查看FC传入的原始事件
+    if (queryParams.action === 'debug') {
+        console.log("匹配到调试路由");
+        return {
+            statusCode: 200,
+            headers: { ...CORS_HEADERS, 'Content-Type': 'application/json; charset=utf-8' },
+            body: JSON.stringify({
+                message: "FC Event, Context, and Parsed Values Debug Info",
+                event: event,
+                context: context,
+                parsed: {
+                  httpMethod,
+                  requestPath,
+                  queryParams
+                }
+            }, null, 2)
+        };
+    }
+
     // 3.1 诊断工具
     if (queryParams.action === 'test-images') {
       console.log("匹配到图片测试路由");
