@@ -1280,8 +1280,14 @@
                 // 对于头像，显示占位符
                 if (imgEl.classList.contains('profile-img')) {
                     showProfilePlaceholder(imgEl);
+                } else if (imgEl.classList.contains('carousel-img')) {
+                    // 对于轮播图片，不要隐藏，给更多时间加载
+                    console.log('轮播图片仍在加载中，请耐心等待...');
+                    // 可以添加一个加载中的样式
+                    imgEl.style.opacity = '0.5';
+                    imgEl.title = '图片加载中...';
                 } else {
-                    // 对于其他图片，可以隐藏或显示占位
+                    // 对于其他图片，可以隐藏
                     imgEl.style.display = 'none';
                 }
             } catch (e) {
@@ -1577,10 +1583,28 @@
             });
         }
 
+        // 轮播图片加载监听器
+        function setupCarouselImageListeners() {
+            const carouselImages = document.querySelectorAll('.carousel-img');
+            carouselImages.forEach((img, index) => {
+                img.addEventListener('load', () => {
+                    console.log(`轮播图 ${index + 1} 加载完成:`, img.src);
+                    img.style.opacity = '1'; // 恢复正常显示
+                    img.title = ''; // 清除加载中提示
+                });
+                
+                img.addEventListener('error', () => {
+                    console.error(`轮播图 ${index + 1} 加载失败:`, img.src);
+                    // 可以设置一个默认图片或占位符
+                });
+            });
+        }
+
         // 页面加载完成后处理图片
         window.addEventListener('load', () => {
             addTimestampToImages(); // 立即为所有图片添加时间戳
-            setTimeout(checkImageStatus, 2000); // 延迟2秒后检查图片状态
+            setupCarouselImageListeners(); // 设置轮播图专门的监听器
+            setTimeout(checkImageStatus, 10000); // 延迟10秒后检查图片状态，给大图片足够时间
         });
 
 
